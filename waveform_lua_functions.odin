@@ -421,7 +421,9 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		gain_v:f32 = f32(lua.tonumber(L, 1))
 		_lua_waveform_check_clamp_or_error(L, 1, gain_v, effect_gain_clamp.min, effect_gain_clamp.max)
 		frame, win_i := _lua_check_frame_window(L, app, 1)
-		app.state.we[win_i].data_frame = frame
+		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
 		effect_gain_full(app, win_i, gain_v, false)
 		return 0
 	}, lua_name = "gain"},
@@ -431,7 +433,9 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		normal_v:f32 = f32(lua.tonumber(L, 1))
 		_lua_waveform_check_clamp_or_error(L, 1, normal_v, effect_normalization_clamp.min, effect_normalization_clamp.max)
 		frame, win_i := _lua_check_frame_window(L, app, 1)
-		app.state.we[win_i].data_frame = frame
+		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
 		effect_normalization_full(app, win_i, normal_v, false)
 		return 0
 	}, lua_name = "normalization"},
@@ -443,8 +447,8 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		we_state := &app.state.we[win_i]
 		clamp := effect_change_phase_clamp(we_state)
 		_lua_waveform_check_clamp_or_error(L, 1, ch_phase_v, clamp.min, clamp.max)
-		_lua_check_frame(L, 1, win_i, frame, app)
-		app.state.we[win_i].data_frame = frame
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
 		effect_change_phase_full(app, win_i, ch_phase_v, false)
 		return 0
 	}, lua_name = "change_phase"},
@@ -456,7 +460,9 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		comb_n_v:i32 = i32(lua.tointeger(L, 2))
 		_lua_waveform_check_clamp_or_error(L, 2, comb_n_v, effect_comb_fff_clamp_n.min, effect_comb_fff_clamp_n.max)
 		frame, win_i := _lua_check_frame_window(L, app, 2)
-		app.state.we[win_i].data_frame = frame
+		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
 		effect_comb_filter_feed_forward_full(app, win_i, comb_m_v, comb_n_v, false)
 		return 0
 	}, lua_name = "comb_feed_forward"},
@@ -464,7 +470,9 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		context = runtime.default_context()
 		app := lua_get_app(L)
 		frame, win_i := _lua_check_frame_window(L, app, 0)
-		app.state.we[win_i].data_frame = frame
+		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
 		effect_inversion_full(app, win_i, false)
 		return 0
 	}, lua_name = "inversion"},
@@ -472,7 +480,9 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		context = runtime.default_context()
 		app := lua_get_app(L)
 		frame, win_i := _lua_check_frame_window(L, app, 0)
-		app.state.we[win_i].data_frame = frame
+		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
 		effect_fuzz_full(app, win_i, false)
 		return 0
 	}, lua_name = "fuzz"},
@@ -482,7 +492,9 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		hard_clip_v:f32 = f32(lua.tonumber(L, 1))
 		_lua_waveform_check_clamp_or_error(L, 1, hard_clip_v, effect_hard_clip_clamp.min, effect_hard_clip_clamp.max)
 		frame, win_i := _lua_check_frame_window(L, app, 1)
-		app.state.we[win_i].data_frame = frame
+		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
 		effect_hard_clip_full(app, win_i, hard_clip_v, false)
 		return 0
 	}, lua_name = "hard_clip"},
@@ -492,7 +504,9 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		soft_clip_v:f32 = f32(lua.tonumber(L, 1))
 		_lua_waveform_check_clamp_or_error(L, 1, soft_clip_v, effect_soft_clip_clamp.min, effect_soft_clip_clamp.max)
 		frame, win_i := _lua_check_frame_window(L, app, 1)
-		app.state.we[win_i].data_frame = frame
+		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
 		effect_soft_clip_full(app, win_i, soft_clip_v, false)
 		return 0
 	}, lua_name = "soft_clip"},
@@ -502,7 +516,9 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		bitcrush_v:i32 = i32(lua.tointeger(L, 1))
 		_lua_waveform_check_clamp_or_error(L, 1, bitcrush_v, effect_bit_crusher_clamp.min+1, effect_bit_crusher_clamp.max+1)
 		frame, win_i := _lua_check_frame_window(L, app, 1)
-		app.state.we[win_i].data_frame = frame
+		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
 		effect_bit_crusher_full(app, win_i, WaveformBitcrush(bitcrush_v-1), false)
 		return 0
 	}, lua_name = "bit_crusher"},
@@ -512,7 +528,9 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		wavefold_v:f32 = f32(lua.tonumber(L, 1))
 		_lua_waveform_check_clamp_or_error(L, 1, wavefold_v, effect_triangle_folding_clamp.min, effect_triangle_folding_clamp.max)
 		frame, win_i := _lua_check_frame_window(L, app, 1)
-		app.state.we[win_i].data_frame = frame
+		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
 		effect_triangle_folding_full(app, win_i, wavefold_v, false)
 		return 0
 	}, lua_name = "triangle_fold"},
@@ -521,9 +539,11 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		app := lua_get_app(L)
 		cheb_n_v:f32 = f32(lua.tonumber(L, 1))
 		frame, win_i := _lua_check_frame_window(L, app, 1)
-		clamp := effect_chebyshev_folding_clamp(app.state.we[win_i].num_points)
+		we_state := &app.state.we[win_i]
+		clamp := effect_chebyshev_folding_clamp(we_state.num_points)
 		_lua_waveform_check_clamp_or_error(L, 1, cheb_n_v, clamp.min, clamp.max)
-		app.state.we[win_i].data_frame = frame
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
 		effect_chebyshev_folding_full(app, win_i, cheb_n_v, false)
 		return 0
 	}, lua_name = "chebyshev_fold"},
@@ -533,7 +553,9 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		overtone_v:i32 = i32(lua.tointeger(L, 1))
 		_lua_waveform_check_clamp_or_error(L, 1, overtone_v, effect_n_overtone_clamp.min, effect_n_overtone_clamp.max)
 		frame, win_i := _lua_check_frame_window(L, app, 1)
-		app.state.we[win_i].data_frame = frame
+		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
 		effect_n_overtone_full(app, win_i, overtone_v, false)
 		return 0
 	}, lua_name = "n_overtone"},
@@ -543,7 +565,9 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		n_samp_v:i32 = i32(lua.tointeger(L, 1))
 		_lua_waveform_check_clamp_or_error(L, 1, n_samp_v, effect_resampling_clamp.min, effect_resampling_clamp.max)
 		frame, win_i := _lua_check_frame_window(L, app, 1)
-		app.state.we[win_i].data_frame = frame
+		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
 		n_samp_interp_str: cstring = lua.tostring(L,3)
 		n_samp_interp: InterpolationType = ---
 		switch(n_samp_interp_str) {
@@ -565,7 +589,9 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		offset_v:f32 = f32(lua.tonumber(L, 1))
 		_lua_waveform_check_clamp_or_error(L, 1, offset_v, effect_offset_clamp.min, effect_offset_clamp.max)
 		frame, win_i := _lua_check_frame_window(L, app, 1)
-		app.state.we[win_i].data_frame = frame
+		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
 		effect_offset_full(app, win_i, offset_v, false)
 		return 0
 	}, lua_name = "offset"},
@@ -832,7 +858,9 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		app := lua_get_app(L)
 		context = runtime.default_context()
 		frame, win_i := _lua_check_frame_window(L, app, 0)
-		app.state.we[win_i].data_frame = frame
+		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
 		harmonics_update_model(app, win_i)
 		return 0
 	}, lua_name = "update"},
@@ -840,7 +868,9 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		app := lua_get_app(L)
 		context = runtime.default_context()
 		frame, win_i := _lua_check_frame_window(L, app, 0)
-		app.state.we[win_i].data_frame = frame
+		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
 		harmonics_apply(app, win_i, false)
 		return 0
 	}, lua_name = "apply"},
@@ -852,7 +882,9 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		low_pass_v:f32 = f32(lua.tonumber(L, 1))
 		clamp := effect_pass_clamp(wfm)
 		_lua_waveform_check_clamp_or_error(L, 1, low_pass_v, clamp.min, clamp.max)
-		app.state.we[win_i].data_frame = frame
+		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
 		harmonics_update_model(app, win_i)
 		effect_low_pass(app, win_i, low_pass_v, false)
 		return 0
@@ -865,7 +897,9 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		high_pass_v:f32 = f32(lua.tonumber(L, 1))
 		clamp := effect_pass_clamp(wfm)
 		_lua_waveform_check_clamp_or_error(L, 1, high_pass_v, clamp.min, clamp.max)
-		app.state.we[win_i].data_frame = frame
+		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
 		harmonics_update_model(app, win_i)
 		effect_high_pass(app, win_i, high_pass_v, false)
 		return 0
@@ -874,7 +908,9 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		context = runtime.default_context()
 		app := lua_get_app(L)
 		frame, win_i := _lua_check_frame_window(L, app, 0)
-		app.state.we[win_i].data_frame = frame
+		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
 		harmonics_update_model(app, win_i)
 		effect_odd_harmonics_only(app, win_i, false)
 		return 0
@@ -883,7 +919,9 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		context = runtime.default_context()
 		app := lua_get_app(L)
 		frame, win_i := _lua_check_frame_window(L, app, 0)
-		app.state.we[win_i].data_frame = frame
+		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
 		harmonics_update_model(app, win_i)
 		effect_even_harmonics_only(app, win_i, false)
 		return 0
@@ -892,10 +930,24 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		context = runtime.default_context()
 		app := lua_get_app(L)
 		frame, win_i := _lua_check_frame_window(L, app, 1)
+		h_shift_by:f32 = f32(lua.tonumber(L, 1))
+		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
+		harmonics_update_model(app, win_i)
+		effect_shift_harmonics(app, win_i, h_shift_by, false)
+		return 0
+	}, lua_name = "shift"},
+	{ptr = proc "c" (L: ^lua.State) -> c.int {
+		context = runtime.default_context()
+		app := lua_get_app(L)
+		frame, win_i := _lua_check_frame_window(L, app, 1)
 		wfm := &app.state.we_h_wfs[win_i]
 		amp_i := lua.tointeger(L, 1)
 		_lua_check_harmonic_index(L, wfm, amp_i, true)
-		app.state.we[win_i].data_frame = frame
+		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
 		lua.pushnumber(L, lua.Number(wfm.amp[amp_i]))
 		return 1
 	}, lua_name = "amplitude_r"},
@@ -906,7 +958,9 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		wfm := &app.state.we_h_wfs[win_i]
 		amp_i := lua.tointeger(L, 1)
 		_lua_check_harmonic_index(L, wfm, amp_i, true)
-		app.state.we[win_i].data_frame = frame
+		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
 		new_value: f32 = f32(lua.tonumber(L, 2))
 		wfm.amp[amp_i] = new_value
 		return 0
@@ -918,7 +972,9 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		wfm := &app.state.we_h_wfs[win_i]
 		ph_i := lua.tointeger(L, 1)
 		_lua_check_harmonic_index(L, wfm, ph_i, false)
-		app.state.we[win_i].data_frame = frame
+		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+		we_state.data_frame = frame
 		lua.pushnumber(L, lua.Number(wfm.phase[ph_i]))
 		return 1
 	}, lua_name = "phase_r"},
@@ -928,6 +984,7 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		frame, win_i := _lua_check_frame_window(L, app, 1)
 		wfm := &app.state.we_h_wfs[win_i]
 		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
 		we_state.data_frame = frame
 		ph_i := lua.tointeger(L, 1)
 		_lua_check_harmonic_index(L, wfm, ph_i, false)
@@ -963,8 +1020,10 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		if !lua.istable(L, table_i) {
 			lua.L_error(L, "Argument #1 must be a table")
 		}
+		context = runtime.default_context()
 		frame, win_i := _lua_check_frame_window(L, app, 1)
 		we_state := &app.state.we[win_i]
+		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
 		we_state.data_frame = frame
 		wfm := &app.state.we_h_wfs[win_i]
 		lua.pushstring(L, "dc")
@@ -1069,42 +1128,43 @@ _lua_data :: proc "c" (
 		case rem <= math.F32_EPSILON && frame_rem <= math.F32_EPSILON:
 			lua.pushnumber(
 				L,
-				lua.Number(app.state.we[win_i].data[data_index(data_frame_int, u32(data_i_int))]),
+				lua.Number(we_state.data[data_index(data_frame_int, u32(data_i_int))]),
 			)
 			return 1
 		case rem > math.F32_EPSILON && frame_rem <= math.F32_EPSILON:
 			slope :=
-				app.state.we[win_i].data[data_index(data_frame_int, u32((data_i_int + 1) % we_state.num_points))] -
-				app.state.we[win_i].data[data_index(data_frame_int, u32(data_i_int))]
+				we_state.data[data_index(data_frame_int, u32((data_i_int + 1) % we_state.num_points))] -
+				we_state.data[data_index(data_frame_int, u32(data_i_int))]
 			lua.pushnumber(
 				L,
 				lua.Number(
-					app.state.we[win_i].data[data_index(data_frame_int, u32(data_i_int))] +
+					we_state.data[data_index(data_frame_int, u32(data_i_int))] +
 					slope * rem,
 				),
 			)
 			return 1
 		case rem <= math.F32_EPSILON && frame_rem > math.F32_EPSILON:
 			slope :=
-				app.state.we[win_i].data[data_index((data_frame_int + 1) % we_state.num_frames, u32(data_i_int))] -
-				app.state.we[win_i].data[data_index(data_frame_int, u32(data_i_int))]
+				we_state.data[data_index((data_frame_int + 1) % we_state.num_frames, u32(data_i_int))] -
+				we_state.data[data_index(data_frame_int, u32(data_i_int))]
 			lua.pushnumber(
 				L,
 				lua.Number(
-					app.state.we[win_i].data[data_index(data_frame_int, u32(data_i_int))] +
+					we_state.data[data_index(data_frame_int, u32(data_i_int))] +
 					slope * frame_rem,
 				),
 			)
 			return 1
-		case: //TODO: Check
+		case:
+			//TODO: Check
 			//Bilinear interpolation a + bx + cy + dxy, a = z_00, b = z_10 - z_00, c = z_01 - z_00, d = z_11 - z_10 - z_01 + z_00
-			z00 := app.state.we[win_i].data[data_index(data_frame_int, u32(data_i_int))]
+			z00 := we_state.data[data_index(data_frame_int, u32(data_i_int))]
 			z10 :=
-				app.state.we[win_i].data[data_index(data_frame_int, u32((data_i_int + 1) % we_state.num_points))]
+				we_state.data[data_index(data_frame_int, u32((data_i_int + 1) % we_state.num_points))]
 			z01 :=
-				app.state.we[win_i].data[data_index((data_frame_int + 1) % we_state.num_frames, u32(data_i_int))]
+				we_state.data[data_index((data_frame_int + 1) % we_state.num_frames, u32(data_i_int))]
 			z11 :=
-				app.state.we[win_i].data[data_index((data_frame_int + 1) % we_state.num_frames, u32((data_i_int + 1) % we_state.num_points))]
+				we_state.data[data_index((data_frame_int + 1) % we_state.num_frames, u32((data_i_int + 1) % we_state.num_points))]
 			lua.pushnumber(
 				L,
 				lua.Number(
@@ -1132,7 +1192,7 @@ _lua_data :: proc "c" (
 				i32(data_i_int),
 				data_frame_int,
 			)
-			app.state.we[win_i].data[data_index(data_frame_int, u32(data_i_int))] = f32(assign_f)
+			we_state.data[data_index(data_frame_int, u32(data_i_int))] = f32(assign_f)
 			return 0
 		} else {
 			if rem > math.F32_EPSILON {

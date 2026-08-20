@@ -11,7 +11,7 @@ Created using the [Odin Programming Language](https://github.com/odin-lang/Odin)
 ### Build Steps
 ```json
 //For Odin Imgui, follow the steps for your operating system to build the libraries.
-//Edit ols.json with the Odin Imgui path for ols to work
+//Then edit ols.json with the Odin Imgui path for ols to work
 {
     "collections": [
         {
@@ -21,6 +21,9 @@ Created using the [Odin Programming Language](https://github.com/odin-lang/Odin)
 }
 ```
 ```sh
-# In current project directory
+# To build the binary
 odin build . -collection:imgui=/path/to/odin-imgui/ -o: speed
 ```
+
+### Usage
+TODO
