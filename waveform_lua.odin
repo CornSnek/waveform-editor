@@ -9,7 +9,7 @@ import "core:fmt"
 import "core:log"
 import "core:strings"
 
-import imgui "../../shared/odin-imgui/"
+import imgui "imgui:/"
 import lua "vendor:lua/5.4"
 
 

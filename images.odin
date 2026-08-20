@@ -3,7 +3,7 @@ package waveform_editor
 import "core:c"
 import "core:mem"
 
-import imgui "../../shared/odin-imgui/"
+import imgui "imgui:/"
 import "assets"
 import sdl "vendor:sdl3"
 import stbimg "vendor:stb/image"

@@ -5,7 +5,7 @@ import "core:container/queue"
 import "core:math"
 import "core:strings"
 
-import imgui "../../shared/odin-imgui/"
+import imgui "imgui:/"
 
 //To make ImGui objects draw based on .scale and app window resizing.
 UDim :: struct {

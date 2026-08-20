@@ -12,7 +12,7 @@ import "core:strconv"
 import "core:strings"
 import "core:sync"
 
-import imgui "../../shared/odin-imgui/"
+import imgui "imgui:/"
 import "./assets"
 import "./colors"
 import ma "vendor:miniaudio"

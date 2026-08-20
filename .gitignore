@@ -2,3 +2,4 @@ test_files/
 assets/*.kra.*~
 assets/*.png.*~
 waveform_editor
+.vscode/

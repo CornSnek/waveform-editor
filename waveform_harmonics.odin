@@ -6,7 +6,7 @@ import "core:fmt"
 import "core:math"
 import "core:strings"
 
-import imgui "../../shared/odin-imgui/"
+import imgui "imgui:/"
 import fm "./fourier_model"
 harmonics_update_model :: proc(app: ^App, win_idx: int) {
 	fm.waveform_model_destroy(&app.state.we_h_wfs[win_idx])

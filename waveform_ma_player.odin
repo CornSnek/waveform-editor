@@ -9,7 +9,7 @@ import "core:strings"
 import "core:sync"
 import "core:thread"
 
-import imgui "../../shared/odin-imgui/"
+import imgui "imgui:/"
 import pb "playback_buffer"
 import ma "vendor:miniaudio"
 

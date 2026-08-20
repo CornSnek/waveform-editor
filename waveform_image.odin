@@ -6,7 +6,7 @@ import "core:math"
 import "core:math/linalg"
 import "core:strings"
 
-import imgui "../../shared/odin-imgui/"
+import imgui "imgui:/"
 import "assets"
 import sdl "vendor:sdl3"
 import stbimg "vendor:stb/image"
