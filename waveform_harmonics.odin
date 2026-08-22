@@ -20,7 +20,7 @@ harmonics_update_model :: proc(app: ^App, win_idx: int) {
 	)
 }
 
-f_harmonics_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
+f_harmonics_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	we_state := &app.state.we[win_idx]
 	style := imgui.GetStyle()
 	lgp := get_line_graph_prop(true)
@@ -236,7 +236,7 @@ harmonics_apply :: proc(app: ^App, win_idx: int, add_stop: bool = true) {
 		)
 	}
 }
-f_harmonics_destroy :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
+f_harmonics_destroy :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	handle_map.remove(&app.imgui_hm, base.handle)
 	strings.builder_destroy(&base.id.(strings.Builder))
 	base.is_active = false

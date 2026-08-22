@@ -86,7 +86,7 @@ we_wav_state_new :: proc(app: ^App) -> WEWavState {
 }
 
 we_wav_state_destroy :: proc(self: ^WEWavState, app: ^App) {
-	if app.windows.wav_player.base.is_active {
+	if app.windows.wav_player.is_active {
 		if self.wav_texture != nil {
 			sdl.ReleaseGPUTexture(app.gpu, self.wav_texture)
 		}
@@ -106,7 +106,7 @@ we_wav_state_destroy :: proc(self: ^WEWavState, app: ^App) {
 
 wav_player_new :: proc(app: ^App) {
 	assert(app.state.fe_audio_state.state == .ChooseLoadAs)
-	if !app.windows.wav_player.base.is_active {
+	if !app.windows.wav_player.is_active {
 		app.windows.wav_player = imgui_window_new(
 			".wav Player",
 			0,
@@ -116,7 +116,7 @@ wav_player_new :: proc(app: ^App) {
 			size = {UDim{s = 1}, UDim{s = 0.25}},
 			flags = {.NoScrollWithMouse, .MenuBar, .NoScrollbar, .AlwaysHorizontalScrollbar},
 		)
-		imgui_obj_add_handle(app, &app.windows.wav_player.base)
+		imgui_window_add_handle(app, &app.windows.wav_player)
 	} else {
 		we_wav_state_destroy(&app.state.we_wav_state, app)
 	}
@@ -268,9 +268,8 @@ _cursor_pos_f :: #force_inline proc(
 		f32(cursor) / f32(we_wav_state.max_frames) * button_rect.x \
 	)
 }
-f_wav_player_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
+f_wav_player_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	we_wav_state := &app.state.we_wav_state
-	self := cast(^ImGuiWindow)base
 	frame_size := imgui.GetFrameHeight()
 	draw_list := imgui.GetWindowDrawList()
 	io := imgui.GetIO()
@@ -368,9 +367,9 @@ f_wav_player_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: r
 			imgui.Text("Waveform Editor Window:")
 			for _win_idx in 0 ..< MAX_WAVEFORM_EDITOR_WINDOWS {
 				window := &app.windows.waveform_editors[_win_idx]
-				if window.base.is_active {
+				if window.is_active {
 					we_state := &app.state.we[_win_idx]
-					sb := &window.base.id.(strings.Builder)
+					sb := &base.id.(strings.Builder)
 					no_create: if imgui.MenuItem(cstring(&sb.buf[0])) {
 						atomic_store_rel(
 							&we_wav_state.thread_state.status,
@@ -642,11 +641,11 @@ f_wav_player_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: r
 		pcx :=
 			win_tl.x + f32(we_wav_state.play_cursor) / f32(we_wav_state.max_frames) * button_rect.x
 		if pcx <= scroll_x || pcx >= scroll_x + content_size.x {
-			self.keep_scroll_here = imgui.Vec2{pcx, 0}
+			base.keep_scroll_here = imgui.Vec2{pcx, 0}
 			we_wav_state.redraw_wav = pcx
 		}
 	}
-	no_draw: if we_wav_state.redraw_wav != nil && self.keep_scroll_here == nil {
+	no_draw: if we_wav_state.redraw_wav != nil && base.keep_scroll_here == nil {
 		//Draw lines of min/max based on samples per pixel
 		sx := u64(min(we_wav_state.redraw_wav.(f32), imgui.GetScrollMaxX()))
 		if math.is_inf(sample_len_f) {
@@ -745,7 +744,7 @@ f_wav_player_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: r
 	)
 }
 
-_wav_player_keybinds :: proc(base: ^ImGuiBase, app: ^App, win_tl, content_size: [2]f32) {
+_wav_player_keybinds :: proc(base: ^ImGuiWindow, app: ^App, win_tl, content_size: [2]f32) {
 	we_wav_state := &app.state.we_wav_state
 	io := imgui.GetIO()
 	wav_pos := io.MousePos - win_tl + {imgui.GetScrollX(), 0}
@@ -756,7 +755,6 @@ _wav_player_keybinds :: proc(base: ^ImGuiBase, app: ^App, win_tl, content_size: 
 		content_size.y,
 	}
 	to_sample_i := wav_pos.x / samples_rect_size.x * f32(we_wav_state.max_frames)
-	window := cast(^ImGuiWindow)base
 	if imgui.IsKeyDown(.ImGuiMod_Shift) {
 		if imgui.IsKeyPressed(.LeftArrow) {
 			old_start_cursor := atomic_load_acq(&we_wav_state.start_cursor)
@@ -773,7 +771,7 @@ _wav_player_keybinds :: proc(base: ^ImGuiBase, app: ^App, win_tl, content_size: 
 						samples_rect_size.x
 				if pcx <= imgui.GetScrollX() {
 					left_end := max(imgui.GetScrollX() - content_size.x, 0)
-					window.keep_scroll_here = imgui.Vec2{left_end, 0}
+					base.keep_scroll_here = imgui.Vec2{left_end, 0}
 					we_wav_state.redraw_wav = left_end
 				}
 			}
@@ -794,7 +792,7 @@ _wav_player_keybinds :: proc(base: ^ImGuiBase, app: ^App, win_tl, content_size: 
 						samples_rect_size.x
 				right_end := imgui.GetScrollX() + content_size.x
 				if pcx >= right_end {
-					window.keep_scroll_here = imgui.Vec2{right_end, 0}
+					base.keep_scroll_here = imgui.Vec2{right_end, 0}
 					we_wav_state.redraw_wav = right_end
 				}
 			}
@@ -836,7 +834,7 @@ _wav_player_keybinds :: proc(base: ^ImGuiBase, app: ^App, win_tl, content_size: 
 			sample_i_dt := to_sample_i / 2
 			srs_sample_width := samples_rect_size.x * old_scale / f32(we_wav_state.max_frames)
 			sx := max(0, imgui.GetScrollX() + sample_i_dt * srs_sample_width / new_scale)
-			window.keep_scroll_here = [2]f32{sx, 0}
+			base.keep_scroll_here = [2]f32{sx, 0}
 			we_wav_state.redraw_wav = sx
 			sb := strings.builder_make()
 			strings.write_string(&sb, "Zoom In: ")
@@ -858,7 +856,7 @@ _wav_player_keybinds :: proc(base: ^ImGuiBase, app: ^App, win_tl, content_size: 
 			sample_i_dt := -to_sample_i
 			srs_sample_width := samples_rect_size.x * old_scale / f32(we_wav_state.max_frames)
 			sx := max(0, imgui.GetScrollX() + sample_i_dt * srs_sample_width / new_scale)
-			window.keep_scroll_here = [2]f32{sx, 0}
+			base.keep_scroll_here = [2]f32{sx, 0}
 			we_wav_state.redraw_wav = sx
 			sb := strings.builder_make()
 			strings.write_string(&sb, "Zoom Out: ")
@@ -874,7 +872,7 @@ _wav_player_keybinds :: proc(base: ^ImGuiBase, app: ^App, win_tl, content_size: 
 	}
 }
 
-f_wav_player_destroy :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
+f_wav_player_destroy :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	handle_map.remove(&app.imgui_hm, base.handle)
 	we_wav_state_destroy(&app.state.we_wav_state, app)
 	base.is_active = false

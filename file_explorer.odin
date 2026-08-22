@@ -275,14 +275,14 @@ file_explorer_new :: proc(app: ^App, fe_type: FileExplorerType) -> handle_map.Ha
 		size = {UDim{s = 0.5}, UDim{o = -20, s = 0.5}},
 		flags = {.NoScrollbar, .AlwaysVerticalScrollbar},
 	)
-	imgui_obj_add_handle(app, &app.windows.file_explorer.base)
-	return app.windows.file_explorer.base.handle
+	imgui_window_add_handle(app, &app.windows.file_explorer)
+	return app.windows.file_explorer.handle
 }
 
 fe_new_folder_buf: [dynamic]u8
 file_explorer_type: FileExplorerType = .Load
 file_explorer_load_idx: int //.LoadToWindow, .SaveToAudio, .LoadFromAudioFolder, .SaveToAudioFolder
-f_file_explorer_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
+f_file_explorer_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	style := imgui.GetStyle()
 	draw_list := imgui.GetWindowDrawList()
 	frame_height := imgui.GetFrameHeight()
@@ -331,7 +331,7 @@ f_file_explorer_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata
 		}
 		no_button_cb: if imgui.Button(cstring(&f.sb.buf[0]), button_size) {
 			ec := EventCall {
-				base     = base,
+				window     = base,
 				userdata = &f.sb.buf[0],
 			}
 			switch f.type {
@@ -503,7 +503,7 @@ f_file_explorer_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata
 							queue.push_back(
 								&app.state.events_f,
 								EventCall {
-									base = base,
+									window = base,
 									userdata = &pfd.sb.buf[0],
 									event_f = f_fex_load_audio_dir,
 								},
@@ -513,7 +513,7 @@ f_file_explorer_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata
 							queue.push_back(
 								&app.state.events_f,
 								EventCall {
-									base = base,
+									window = base,
 									userdata = &pfd.sb.buf[0],
 									event_f = f_fex_save_audio_dir,
 								},
@@ -523,7 +523,7 @@ f_file_explorer_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata
 							queue.push_back(
 								&app.state.events_f,
 								EventCall {
-									base = base,
+									window = base,
 									userdata = &pfd.sb.buf[0],
 									event_f = f_fex_dir,
 								},
@@ -536,7 +536,7 @@ f_file_explorer_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata
 							queue.push_back(
 								&app.state.events_f,
 								EventCall {
-									base = base,
+									window = base,
 									userdata = &pfd.sb.buf[0],
 									event_f = f_fex_image,
 								},
@@ -557,7 +557,7 @@ f_file_explorer_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata
 							queue.push_back(
 								&app.state.events_f,
 								EventCall {
-									base = base,
+									window = base,
 									userdata = &pfd.sb.buf[0],
 									event_f = f_fex_audio,
 								},
@@ -570,7 +570,7 @@ f_file_explorer_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata
 							queue.push_back(
 								&app.state.events_f,
 								EventCall {
-									base = base,
+									window = base,
 									userdata = &pfd.sb.buf[0],
 									event_f = f_fex_lua,
 								},
@@ -588,7 +588,7 @@ f_file_explorer_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata
 					queue.push_back(
 						&app.state.events_f,
 						EventCall {
-							base = base,
+							window = base,
 							userdata = &app.state.fe_choose_buf[0],
 							event_f = f_fex_audio,
 						},
@@ -600,7 +600,7 @@ f_file_explorer_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata
 					queue.push_back(
 						&app.state.events_f,
 						EventCall {
-							base = base,
+							window = base,
 							userdata = &app.state.fe_choose_buf[0],
 							event_f = f_fex_lua,
 						},
@@ -613,7 +613,7 @@ f_file_explorer_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata
 				queue.push_back(
 					&app.state.events_f,
 					EventCall {
-						base = base,
+						window = base,
 						userdata = &app.state.fe_choose_buf[0],
 						event_f = f_fex_load_audio_dir,
 					},
@@ -622,7 +622,7 @@ f_file_explorer_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata
 				queue.push_back(
 					&app.state.events_f,
 					EventCall {
-						base = base,
+						window = base,
 						userdata = &app.state.fe_choose_buf[0],
 						event_f = f_fex_save_audio_dir,
 					},
@@ -633,7 +633,7 @@ f_file_explorer_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata
 	imgui.EndChild()
 }
 
-f_file_explorer_destroy :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
+f_file_explorer_destroy :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	handle_map.remove(&app.imgui_hm, base.handle)
 	base.is_active = false
 	if fe_new_folder_buf != nil {
@@ -641,14 +641,14 @@ f_file_explorer_destroy :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userd
 	}
 }
 
-f_fex_back_dir :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
+f_fex_back_dir :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	revert_edit_path() //In case buffer was edited
 	parent := filepath.dir(string(get_path_dir()))
 	mem.zero(&edit_path_buf[len(parent)], len(edit_path_buf) - len(parent))
 	refresh_dir_or_root(app)
 }
 //Directory '/' will not have a back button.
-f_fex_dir :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
+f_fex_dir :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	mem.zero(&edit_path_buf[0], MAX_PATH_LEN)
 	not_root := get_path_dir() != filepath.dir(get_path_dir())
 	dir_cstr := cstring(cast(^u8)userdata)
@@ -661,10 +661,9 @@ f_fex_dir :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
 	defer delete(new_dir_str)
 	copy_from_string(edit_path_buf[:], new_dir_str)
 	refresh_dir_or_root(app)
-	window := (^ImGuiWindow)(base)
-	window.keep_scroll_here = imgui.Vec2{0, 0}
+	base.keep_scroll_here = imgui.Vec2{0, 0}
 }
-f_fex_save_audio_dir :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
+f_fex_save_audio_dir :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	assert(file_explorer_type == .SaveToAudioFolder)
 	revert_edit_path() //In case buffer was edited
 	not_root := get_path_dir() != filepath.dir(get_path_dir())
@@ -681,9 +680,9 @@ f_fex_save_audio_dir :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata
 	}
 	base.disabled = true
 }
-f_fex_load_audio_dir :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
+f_fex_load_audio_dir :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	assert(file_explorer_type == .LoadFromAudioFolder)
-	defer base._set_is_shown(base, false)
+	defer base.show = false
 	revert_edit_path() //In case buffer was edited
 	not_root := get_path_dir() != filepath.dir(get_path_dir())
 	dir_cstr := cstring(cast(^u8)userdata)
@@ -747,7 +746,7 @@ refresh_dir_or_root :: proc(app: ^App) {
 	app.state.path_files = new_pf
 	confirm_edit_path()
 }
-f_fex_image :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
+f_fex_image :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	revert_edit_path() //In case buffer was edited
 	we_image_new(app)
 	file_cstr := cstring(cast(^u8)userdata)
@@ -762,7 +761,7 @@ f_fex_image :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr)
 	)
 	if !success do app.windows.image.show = false
 }
-f_fex_audio :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
+f_fex_audio :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	revert_edit_path() //In case buffer was edited
 	file_str := string(cstring(cast(^u8)userdata))
 	if file_explorer_type != .SaveToAudio {
@@ -777,12 +776,12 @@ f_fex_audio :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr)
 		base.disabled = true
 	}
 }
-f_fex_lua :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
+f_fex_lua :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	revert_edit_path() //In case buffer was edited
 	file := string(cstring(cast(^u8)userdata))
-	assert(app.windows.lua[win_idx].base.is_active)
+	assert(app.windows.lua[win_idx].is_active)
 	if file_explorer_type == .LoadLuaScript {
-		defer base._set_is_shown(base, false)
+		base.show = false
 		abs_file := fmt.tprintf("%s/%s", get_path_dir(), file)
 		file_str, err := os.read_entire_file(abs_file, context.allocator)
 		if err != nil {
@@ -801,7 +800,7 @@ f_fex_lua :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
 		we_lua_state := &app.state.we_luas[win_idx]
 		input_text_shrink(&we_lua_state.text_buf)
 		if !os.exists(abs_file) {
-			defer base._set_is_shown(base, false)
+			defer base.show = false
 			delete_str = true
 			fex_save_lua_file(app, abs_file, win_idx)
 		} else {

@@ -176,7 +176,7 @@ osc_buf: [OSC_BUF_SIZE]f32
 osc_disp_buf: [OSC_BUF_SIZE]f32
 osc_i: i32
 osc_frame_size: i32 = 900
-f_draw_oscilloscope :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
+f_draw_oscilloscope :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	we_state := &app.state.we[win_idx]
 	if imgui.BeginMenuBar() {
 		if imgui.BeginMenu("View") {

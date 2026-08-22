@@ -137,7 +137,7 @@ waveform_editor_new :: proc(app: ^App) -> (int, bool) {
 			size = {UDim{s = 1}, UDim{s = 0.25}},
 			flags = {.NoScrollWithMouse, .NoScrollbar, .AlwaysHorizontalScrollbar, .MenuBar},
 		)
-		imgui_obj_add_handle(app, &app.windows.waveform_editors[_win_idx].base)
+		imgui_window_add_handle(app, &app.windows.waveform_editors[_win_idx])
 		harmonics_update_model(app, _win_idx)
 		reset_phases(app)
 		return _win_idx, true
@@ -327,9 +327,8 @@ _draw_bar :: proc(
 		)
 	}
 }
-f_waveform_editor_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
+f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	we_state := &app.state.we[win_idx]
-	self := cast(^ImGuiWindow)base
 	io := imgui.GetIO()
 	style := imgui.GetStyle()
 	lgp := get_line_graph_prop(true)
@@ -364,7 +363,7 @@ f_waveform_editor_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userda
 				to_x := image_mouse_pos.x / bar_width_unsized
 				from_x := to_x / 2
 				we_state.scale = new_scale
-				self.keep_scroll_here = imgui.Vec2 {
+				base.keep_scroll_here = imgui.Vec2 {
 					imgui.GetScrollX() + (to_x - from_x) * bar_width_unsized * new_scale,
 					0,
 				}
@@ -375,7 +374,7 @@ f_waveform_editor_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userda
 			to_x := image_mouse_pos.x / bar_width_unsized
 			from_x := to_x * 2
 			we_state.scale = new_scale
-			self.keep_scroll_here = imgui.Vec2 {
+			base.keep_scroll_here = imgui.Vec2 {
 				imgui.GetScrollX() + (to_x - from_x) * bar_width_unsized * new_scale,
 				0,
 			}
@@ -722,10 +721,10 @@ f_waveform_editor_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userda
 					create_import_export_window(base, app, win_idx, .Import)
 				}
 				if imgui.MenuItem(".wav file") {
-					if !app.windows.file_explorer.base.is_active {
+					if !app.windows.file_explorer.is_active {
 						file_explorer_load_idx = win_idx
 						fe_h := file_explorer_new(app, .LoadToWindow)
-						self.base.depends_on = fe_h
+						base.depends_on = fe_h
 						refresh_dir_or_root(app)
 					} else {
 						tooltip_change(
@@ -737,10 +736,10 @@ f_waveform_editor_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userda
 					}
 				}
 				if imgui.MenuItem("Directory") {
-					if !app.windows.file_explorer.base.is_active {
+					if !app.windows.file_explorer.is_active {
 						file_explorer_load_idx = win_idx
 						fe_h := file_explorer_new(app, .LoadFromAudioFolder)
-						self.base.depends_on = fe_h
+						base.depends_on = fe_h
 						refresh_dir_or_root(app)
 					} else {
 						tooltip_change(
@@ -758,10 +757,10 @@ f_waveform_editor_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userda
 					create_import_export_window(base, app, win_idx, .Export)
 				}
 				if imgui.MenuItem(".wav file") {
-					if !app.windows.file_explorer.base.is_active {
+					if !app.windows.file_explorer.is_active {
 						file_explorer_load_idx = win_idx
 						fe_h := file_explorer_new(app, .SaveToAudio)
-						self.base.depends_on = fe_h
+						base.depends_on = fe_h
 						refresh_dir_or_root(app)
 					} else {
 						tooltip_change(
@@ -773,10 +772,10 @@ f_waveform_editor_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userda
 					}
 				}
 				if imgui.MenuItem("Directory") {
-					if !app.windows.file_explorer.base.is_active {
+					if !app.windows.file_explorer.is_active {
 						file_explorer_load_idx = win_idx
 						fe_h := file_explorer_new(app, .SaveToAudioFolder)
-						self.base.depends_on = fe_h
+						base.depends_on = fe_h
 						refresh_dir_or_root(app)
 					} else {
 						tooltip_change(
@@ -843,11 +842,11 @@ f_waveform_editor_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userda
 			if imgui.MenuItem(
 				"Harmonics",
 				"Ctrl+H",
-				app.windows.harmonics[win_idx].base.is_active,
+				app.windows.harmonics[win_idx].is_active,
 			) {
 				_add_harmonics_window(base, app, win_idx)
 			}
-			if imgui.MenuItem("Lua", "Ctrl+L", app.windows.lua[win_idx].base.is_active) {
+			if imgui.MenuItem("Lua", "Ctrl+L", app.windows.lua[win_idx].is_active) {
 				_add_lua_window(base, app, win_idx)
 			}
 			sync.mutex_lock(&wp_mutex)
@@ -1347,8 +1346,8 @@ f_waveform_editor_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userda
 	}
 }
 
-_add_harmonics_window :: proc(base: ^ImGuiBase, app: ^App, win_idx: int) {
-	if !app.windows.harmonics[win_idx].base.is_active {
+_add_harmonics_window :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int) {
+	if !app.windows.harmonics[win_idx].is_active {
 		id_sb := strings.builder_make()
 		fmt.sbprintf(&id_sb, "Harmonics %d\x00", win_idx + 1)
 		app.windows.harmonics[win_idx] = imgui_window_new(
@@ -1360,13 +1359,13 @@ _add_harmonics_window :: proc(base: ^ImGuiBase, app: ^App, win_idx: int) {
 			container_f = f_harmonics_draw,
 			destroy_f = f_harmonics_destroy,
 		)
-		imgui_obj_add_handle(app, &app.windows.harmonics[win_idx].base)
+		imgui_window_add_handle(app, &app.windows.harmonics[win_idx])
 		harmonics_update_model(app, win_idx)
 	} else do app.windows.harmonics[win_idx].show = false
 }
 
-_add_lua_window :: proc(base: ^ImGuiBase, app: ^App, win_idx: int) {
-	if !app.windows.lua[win_idx].base.is_active {
+_add_lua_window :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int) {
+	if !app.windows.lua[win_idx].is_active {
 		app.state.we_luas[win_idx] = we_lua_state_new(app)
 		id_sb := strings.builder_make()
 		fmt.sbprintf(&id_sb, "Lua %d\x00", win_idx + 1)
@@ -1379,35 +1378,35 @@ _add_lua_window :: proc(base: ^ImGuiBase, app: ^App, win_idx: int) {
 			container_f = f_we_lua_draw,
 			destroy_f = f_we_lua_destroy,
 		)
-		imgui_obj_add_handle(app, &app.windows.lua[win_idx].base)
+		imgui_window_add_handle(app, &app.windows.lua[win_idx])
 	} else do app.windows.lua[win_idx].show = false
 }
 
-f_waveform_editor_destroy :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
+f_waveform_editor_destroy :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	app.state.we_edit_s.status = .None
 	we_state := &app.state.we[win_idx]
 	waveform_editor_destroy(we_state)
 	we_state.is_active = false
 	handle_map.remove(&app.imgui_hm, base.handle)
-	strings.builder_destroy(&app.windows.waveform_editors[win_idx].base.id.(strings.Builder))
+	strings.builder_destroy(&app.windows.waveform_editors[win_idx].id.(strings.Builder))
 	harmonics_window := &app.windows.harmonics[win_idx]
-	if harmonics_window.base.is_active {
+	if harmonics_window.is_active {
 		queue.push_back(
 			&app.state.events_f,
 			EventCall {
-				base = &harmonics_window.base,
-				event_f = harmonics_window.base._destroy,
+				window = harmonics_window,
+				event_f = harmonics_window._destroy,
 				win_idx = win_idx,
 			},
 		)
 	}
 	lua_window := &app.windows.lua[win_idx]
-	if lua_window.base.is_active {
+	if lua_window.is_active {
 		queue.push_back(
 			&app.state.events_f,
 			EventCall {
-				base = &lua_window.base,
-				event_f = lua_window.base._destroy,
+				window = lua_window,
+				event_f = lua_window._destroy,
 				win_idx = win_idx,
 			},
 		)
@@ -1421,7 +1420,7 @@ reset_phases :: proc(app: ^App) {
 }
 
 _we_keybinds :: proc(
-	base: ^ImGuiBase,
+	base: ^ImGuiWindow,
 	app: ^App,
 	we_state: ^WaveformEditorState,
 	win_idx: int,
@@ -1742,13 +1741,13 @@ _parse_to_data :: proc(
 	num_i^ += 1
 }
 create_import_export_window :: proc(
-	base: ^ImGuiBase,
+	base: ^ImGuiWindow,
 	app: ^App,
 	win_idx: int,
 	ie_text: ImportExportText,
 ) {
 	we_state := &app.state.we[win_idx]
-	if !app.windows.import_text.base.is_active {
+	if !app.windows.import_text.is_active {
 		we_state.ie_text = ie_text
 		title: cstring = "Import Text" if ie_text == .Import else "Export Text"
 		app.windows.import_text = imgui_window_new(
@@ -1760,8 +1759,8 @@ create_import_export_window :: proc(
 			container_f = f_import_export_text,
 			destroy_f = f_remove_handle,
 		)
-		h := handle_map.add(&app.imgui_hm, ImGuiBaseHandle{base = &app.windows.import_text.base})
-		app.windows.import_text.base.handle = h
+		h := handle_map.add(&app.imgui_hm, ImGuiWindowHandle{window = &app.windows.import_text})
+		app.windows.import_text.handle = h
 		base.depends_on = h
 	} else {
 		tooltip_change(
@@ -1772,7 +1771,7 @@ create_import_export_window :: proc(
 		)
 	}
 }
-f_import_export_text :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
+f_import_export_text :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	we_state := &app.state.we[win_idx]
 	ie_text := we_state.ie_text
 	style := imgui.GetStyle()

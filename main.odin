@@ -62,7 +62,7 @@ ResizeWindowsState :: enum {
 }
 
 EventCall :: struct {
-	base:     ^ImGuiBase,
+	window:     ^ImGuiWindow,
 	event_f:  ImGuiF_1BaseP2AppP3RawP,
 	win_idx:  int,
 	userdata: rawptr,
@@ -163,7 +163,7 @@ ColorsButton :: struct {
 	active:  imgui.Vec4,
 }
 
-ImGuiHM :: handle_map.Dynamic_Handle_Map(ImGuiBaseHandle, handle_map.Handle16)
+ImGuiHM :: handle_map.Dynamic_Handle_Map(ImGuiWindowHandle, handle_map.Handle16)
 App :: struct {
 	config:   AppConfig,
 	state:    AppState,
@@ -225,11 +225,11 @@ app_destroy :: proc(app: ^App) {
 	for idx in 0 ..< MAX_WAVEFORM_EDITOR_WINDOWS {
 		we_state := &app.state.we[idx]
 		if we_state.is_active {
-			f_waveform_editor_destroy(&app.windows.waveform_editors[idx].base, app, idx, nil)
+			f_waveform_editor_destroy(&app.windows.waveform_editors[idx], app, idx, nil)
 		}
 	}
 	for ec in queue.pop_front_safe(&app.state.events_f) { 	//Delete other windows from active waveform editors
-		ec.event_f(ec.base, app, ec.win_idx, ec.userdata)
+		ec.event_f(ec.window, app, ec.win_idx, ec.userdata)
 	}
 	#partial switch &s in app.state.tooltip.container {
 	case strings.Builder:
@@ -317,8 +317,8 @@ main :: proc() {
 
 	handle_map.dynamic_init(&app.imgui_hm, context.allocator)
 	defer handle_map.dynamic_destroy(&app.imgui_hm)
-	imgui_obj_add_handle(&app, &app.windows.oscilloscope.base)
-	imgui_obj_add_handle(&app, &app.windows.output_log.base)
+	imgui_window_add_handle(&app, &app.windows.oscilloscope)
+	imgui_window_add_handle(&app, &app.windows.output_log)
 
 	sdl.SetLogOutputFunction(log_fn, nil)
 	when ODIN_DEBUG {
@@ -415,7 +415,7 @@ main :: proc() {
 			}
 
 			for ec in queue.pop_front_safe(&app.state.events_f) {
-				ec.event_f(ec.base, &app, ec.win_idx, ec.userdata)
+				ec.event_f(ec.window, &app, ec.win_idx, ec.userdata)
 			}
 
 			app.state.frames += 1
@@ -433,7 +433,7 @@ main :: proc() {
 					waveform_editor_new(&app)
 				}
 				if imgui.MenuItem("Load File") {
-					if !app.windows.file_explorer.base.is_active {
+					if !app.windows.file_explorer.is_active {
 						file_explorer_new(&app, .Load)
 						refresh_dir_or_root(&app)
 					} else {
@@ -453,16 +453,15 @@ main :: proc() {
 			if imgui.BeginMenu("Window") {
 				it := handle_map.iterator_make(&app.imgui_hm)
 				for bh, _ in handle_map.iterate(&it) {
-					shown := bh.base->_is_shown()
-					_, dep := bh.base.depends_on.?
+					_, dep := bh.window.depends_on.?
 					c_str: cstring = ---
-					switch v in bh.base.id {
+					switch v in bh.window.id {
 					case cstring:
 						c_str = v
 					case strings.Builder:
 						c_str = cstring(&v.buf[0])
 					}
-					if imgui.MenuItem(c_str, selected = shown, enabled = !dep && !bh.base.disabled) do bh.base->_set_is_shown(!shown)
+					if imgui.MenuItem(c_str, selected = bh.window.show, enabled = !dep && !bh.window.disabled) do bh.window.show = !bh.window.show
 				}
 				imgui.Separator()
 				if imgui.MenuItem("Reset All Windows", "Ctrl+Shift+R") {
@@ -499,7 +498,7 @@ main :: proc() {
 				imgui.SameLine()
 				if imgui.Button("Audio Player") {
 					wav_player_new(&app)
-					app.windows.file_explorer.base->_set_is_shown(false)
+					app.windows.file_explorer.show = false
 				}
 				imgui.SameLine()
 				imgui.PushStyleColor(.Button, transmute(u32)(colors.RED_BUTTON.idle))
@@ -507,7 +506,7 @@ main :: proc() {
 				imgui.PushStyleColor(.ButtonActive, transmute(u32)(colors.RED_BUTTON.active))
 				if imgui.Button("Cancel") {
 					file_explorer_audio_destroy(&app.state.fe_audio_state)
-					app.windows.file_explorer.base.disabled = false
+					app.windows.file_explorer.disabled = false
 				}
 				imgui.PopStyleColor(3)
 				imgui.End()
@@ -540,8 +539,8 @@ main :: proc() {
 						undo_redo_manager_clear(&app.state.we[we_idx].undo_redo)
 					}
 					we_state := &app.state.we[we_idx]
-					if !app.windows.waveform_editors[we_idx].base.is_active do break no_window
-					id_sb := &app.windows.waveform_editors[we_idx].base.id.(strings.Builder)
+					if !app.windows.waveform_editors[we_idx].is_active do break no_window
+					id_sb := &app.windows.waveform_editors[we_idx].id.(strings.Builder)
 					strings.builder_reset(id_sb)
 					fmt.sbprintf(
 						id_sb,
@@ -583,7 +582,7 @@ main :: proc() {
 					}
 					we_state.data_frame = max(we_state.data_frame - 1, 0)
 					file_explorer_audio_destroy(&app.state.fe_audio_state)
-					app.windows.file_explorer.base->_set_is_shown(false)
+					app.windows.file_explorer.show = false
 				}
 				imgui.PushStyleColor(.Button, transmute(u32)(colors.RED_BUTTON.idle))
 				imgui.PushStyleColor(.ButtonHovered, transmute(u32)(colors.RED_BUTTON.hovered))
@@ -599,8 +598,8 @@ main :: proc() {
 			file_str := app.state.fe_audio_state.file_str
 			if !os.exists(file_str) {
 				file_explorer_write_wav_file(&app, file_str)
-				app.windows.file_explorer.base->_set_is_shown(false)
-				id_sb := &app.windows.waveform_editors[file_explorer_load_idx].base.id.(strings.Builder)
+				app.windows.file_explorer.show = false
+				id_sb := &app.windows.waveform_editors[file_explorer_load_idx].id.(strings.Builder)
 				strings.builder_reset(id_sb)
 				fmt.sbprintf(
 					id_sb,
@@ -614,7 +613,7 @@ main :: proc() {
 			app.state.fe_audio_state.state = .SaveAsOverwrite
 			fallthrough
 		case .SaveAsOverwrite:
-			if !app.windows.waveform_editors[file_explorer_load_idx].base.is_active {
+			if !app.windows.waveform_editors[file_explorer_load_idx].is_active {
 				file_explorer_audio_destroy(&app.state.fe_audio_state)
 				break
 			}
@@ -624,8 +623,8 @@ main :: proc() {
 				imgui.Text("Overwrite to file '%s'?", file_str)
 				if imgui.Button("Yes") {
 					file_explorer_write_wav_file(&app, file_str)
-					app.windows.file_explorer.base->_set_is_shown(false)
-					id_sb := &app.windows.waveform_editors[file_explorer_load_idx].base.id.(strings.Builder)
+					app.windows.file_explorer.show = false
+					id_sb := &app.windows.waveform_editors[file_explorer_load_idx].id.(strings.Builder)
 					strings.builder_reset(id_sb)
 					fmt.sbprintf(
 						id_sb,
@@ -642,7 +641,7 @@ main :: proc() {
 				imgui.PushStyleColor(.ButtonActive, transmute(u32)(colors.RED_BUTTON.active))
 				if imgui.Button("No") {
 					file_explorer_audio_destroy(&app.state.fe_audio_state)
-					app.windows.file_explorer.base.disabled = false
+					app.windows.file_explorer.disabled = false
 				}
 				imgui.PopStyleColor(3)
 			}
@@ -672,7 +671,7 @@ main :: proc() {
 					file_explorer_write_wav_file_frame(&app, feams.file_dir, i)
 				}
 				file_explorer_audiomulti_destroy(feams)
-				app.windows.file_explorer.base->_set_is_shown(false)
+				app.windows.file_explorer.show = false
 			} else {
 				feams.state = .CheckOverwrite
 				break
@@ -694,7 +693,7 @@ main :: proc() {
 						file_explorer_write_wav_file_frame(&app, feams.file_dir, i)
 					}
 					file_explorer_audiomulti_destroy(feams)
-					app.windows.file_explorer.base->_set_is_shown(false)
+					app.windows.file_explorer.show = false
 				}
 				imgui.SameLine()
 				imgui.PushStyleColor(.Button, transmute(u32)(colors.RED_BUTTON.idle))
@@ -702,7 +701,7 @@ main :: proc() {
 				imgui.PushStyleColor(.ButtonActive, transmute(u32)(colors.RED_BUTTON.active))
 				if imgui.Button("No") {
 					file_explorer_audio_destroy(&app.state.fe_audio_state)
-					app.windows.file_explorer.base.disabled = false
+					app.windows.file_explorer.disabled = false
 				}
 				imgui.PopStyleColor(3)
 			}
@@ -729,7 +728,7 @@ main :: proc() {
 				imgui.PushStyleColor(.ButtonActive, transmute(u32)(colors.RED_BUTTON.active))
 				if imgui.Button("No") {
 					file_explorer_save_lua_overwrite_destroy(we_overwrite_lua)
-					app.windows.file_explorer.base.disabled = false
+					app.windows.file_explorer.disabled = false
 				}
 				imgui.PopStyleColor(3)
 			}
@@ -805,7 +804,7 @@ main :: proc() {
 
 		it := handle_map.iterator_make(&app.imgui_hm)
 		for bh, _ in handle_map.iterate(&it) {
-			bh.base->_draw(&app, bh.base.idx, bh.base.userdata)
+			bh.window->_draw(&app, bh.window.idx, bh.window.userdata)
 		}
 		if app.state.rw_state == .Active {
 			app.state.rw_state = .Inactive

@@ -28,8 +28,7 @@ we_lua_state_destroy :: proc(self: ^WELuaState) {
 	delete(self.text_buf)
 }
 
-f_we_lua_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
-	self := cast(^ImGuiWindow)base
+f_we_lua_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	imgui.SetNextItemWidth(-1)
 	we_lua_state := &app.state.we_luas[win_idx]
 	imgui.InputTextMultiline(
@@ -51,10 +50,10 @@ f_we_lua_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawpt
 		if imgui.BeginMenu("File") {
 			defer imgui.EndMenu()
 			if imgui.MenuItem("Load Script") {
-				if !app.windows.file_explorer.base.is_active {
+				if !app.windows.file_explorer.is_active {
 					file_explorer_load_idx = win_idx
 					fe_h := file_explorer_new(app, .LoadLuaScript)
-					self.base.depends_on = fe_h
+					base.depends_on = fe_h
 					refresh_dir_or_root(app)
 				} else {
 					tooltip_change(
@@ -66,10 +65,10 @@ f_we_lua_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawpt
 				}
 			}
 			if imgui.MenuItem("Save Script") {
-				if !app.windows.file_explorer.base.is_active {
+				if !app.windows.file_explorer.is_active {
 					file_explorer_load_idx = win_idx
 					fe_h := file_explorer_new(app, .SaveLuaScript)
-					self.base.depends_on = fe_h
+					base.depends_on = fe_h
 					refresh_dir_or_root(app)
 				} else {
 					tooltip_change(
@@ -153,7 +152,7 @@ we_lua_process_text :: proc(app: ^App, win_idx: int, we_lua_state: ^WELuaState) 
 		return
 	}
 	for i in 0 ..< MAX_WAVEFORM_EDITOR_WINDOWS {
-		if app.windows.waveform_editors[i].base.is_active {
+		if app.windows.waveform_editors[i].is_active {
 			undo_redo_manager_undo_add_stop(&we_state.undo_redo)
 		}
 	}
@@ -166,14 +165,14 @@ we_lua_process_text :: proc(app: ^App, win_idx: int, we_lua_state: ^WELuaState) 
 		fmt.println(cstr)
 		lua.pop(wls.L, 1)
 		for i in 0 ..< MAX_WAVEFORM_EDITOR_WINDOWS {
-			if app.windows.waveform_editors[i].base.is_active {
+			if app.windows.waveform_editors[i].is_active {
 				undo_redo_manager_do_undo(&we_state.undo_redo, app)
 				undo_redo_manager_remove_redo(&we_state.undo_redo)
 			}
 		}
 	} else { 	//Remove undo if none were added.
 		for i in 0 ..< MAX_WAVEFORM_EDITOR_WINDOWS {
-			if app.windows.waveform_editors[i].base.is_active {
+			if app.windows.waveform_editors[i].is_active {
 				if !undo_redo_manager_undo_has_no_stop(&we_state.undo_redo) {
 					undo_redo_manager_remove_last(&we_state.undo_redo)
 				}
@@ -226,7 +225,7 @@ lua_warn_f :: proc "c" (userdata: rawptr, msg: rawptr, tocont: c.int) {
 	}
 }
 
-f_we_lua_destroy :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
+f_we_lua_destroy :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	we_lua_state_destroy(&app.state.we_luas[win_idx])
 	handle_map.remove(&app.imgui_hm, base.handle)
 	strings.builder_destroy(&base.id.(strings.Builder))

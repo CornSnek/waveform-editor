@@ -105,8 +105,7 @@ OutputLogTypeColor := [OutputLogMessageType]u32be {
 	.Warn   = 0xff7f00ff,
 	.Error  = 0xff0000ff,
 }
-f_output_log_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
-	window := cast(^ImGuiWindow)base
+f_output_log_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	olstate := &app.state.output_log
 	type_names := reflect.enum_field_names(OutputLogMessageType)
 	next_msg_loop: for count, n := 0, olstate.tail; true; n = (n + 1) % OUTPUT_LOG_MAX_MESSAGES {
@@ -141,7 +140,7 @@ f_output_log_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: r
 		if count == OUTPUT_LOG_MAX_MESSAGES do break
 	}
 	if olstate.scroll_to_end {
-		window.keep_scroll_here = [2]f32{0, imgui.GetScrollMaxY()}
+		base.keep_scroll_here = [2]f32{0, imgui.GetScrollMaxY()}
 	}
 	if imgui.BeginMenuBar() {
 		defer imgui.EndMenuBar()

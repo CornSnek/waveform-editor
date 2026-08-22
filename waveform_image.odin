@@ -81,7 +81,7 @@ we_image_state_destroy :: proc(we_img: ^WEImageState, app: ^App) {
 }
 
 we_image_new :: proc(app: ^App) -> bool {
-	if !app.windows.image.base.is_active {
+	if !app.windows.image.is_active {
 		frame_size := imgui.GetFrameHeight()
 		app.windows.image = imgui_window_new(
 			"Image",
@@ -92,7 +92,7 @@ we_image_new :: proc(app: ^App) -> bool {
 			size = {UDim{s = 0.75}, UDim{s = 0.75, o = -frame_size}},
 			flags = {.NoScrollWithMouse, .NoScrollbar, .MenuBar},
 		)
-		imgui_obj_add_handle(app, &app.windows.image.base)
+		imgui_window_add_handle(app, &app.windows.image)
 		return true
 	} else do return false
 }
@@ -124,7 +124,7 @@ window_to_image_m :: #force_inline proc(
     //odinfmt: enable
 }
 
-f_image_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
+f_image_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	frame_size := imgui.GetFrameHeight()
 	draw_list := imgui.GetWindowDrawList()
 	io := imgui.GetIO()
@@ -419,9 +419,9 @@ f_image_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr
 			imgui.Text("Waveform Editor Window:")
 			for win_i in 0 ..< MAX_WAVEFORM_EDITOR_WINDOWS {
 				window := &app.windows.waveform_editors[win_i]
-				if window.base.is_active {
+				if window.is_active {
 					we_state := &app.state.we[win_i]
-					sb := &window.base.id.(strings.Builder)
+					sb := &window.id.(strings.Builder)
 					no_create: if imgui.MenuItem(cstring(&sb.buf[0])) {
 						image_samples := make([dynamic]f32)
 						defer delete(image_samples)
@@ -608,7 +608,7 @@ _we_image_drag_right :: proc(app: ^App, img_coord: [2]f32, use_shift: bool = tru
 	)
 }
 
-_image_keybinds :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
+_image_keybinds :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	we_img := &app.state.we_img
 	if imgui.IsKeyDown(.ImGuiMod_Ctrl) {
 		if imgui.IsKeyPressed(.W, false) {
@@ -617,7 +617,7 @@ _image_keybinds :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: raw
 	}
 }
 
-f_image_destroy :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
+f_image_destroy :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	handle_map.remove(&app.imgui_hm, base.handle)
 	we_image_state_destroy(&app.state.we_img, app)
 	base.is_active = false

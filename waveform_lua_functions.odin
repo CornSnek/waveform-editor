@@ -1229,7 +1229,7 @@ _lua_check_window :: proc "contextless" (L: ^lua.State, arg_i: c.int, app: ^App,
 			arg_i,
 			MAX_WAVEFORM_EDITOR_WINDOWS,
 		)
-	} else if !app.windows.waveform_editors[win_i - 1].base.is_active {
+	} else if !app.windows.waveform_editors[win_i - 1].is_active {
 		lua.L_error(L, "Window index %d is currently disabled at argument #%d", win_i, arg_i)
 	}
 }
