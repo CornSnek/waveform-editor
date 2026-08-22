@@ -4,6 +4,7 @@ import "base:intrinsics"
 import "base:runtime"
 import "core:c"
 import "core:fmt"
+import "core:log"
 import "core:math"
 import "core:mem"
 import "core:reflect"
@@ -14,6 +15,7 @@ import fm "./fourier_model"
 import lua "vendor:lua/5.4"
 
 LUA_APP_UD_KEY: int
+LUA_BOOL_IS_WARN: int
 
 lua_get_app :: proc "c" (L: ^lua.State) -> ^App {
 	lua.pushlightuserdata(L, &LUA_APP_UD_KEY)
@@ -95,7 +97,7 @@ lua_window__index :: proc "c" (L: ^lua.State) -> c.int {
 	case .NUMBER:
 		win_idx: int = int(lua.tointeger(L, 2))
 		_lua_check_window(L, 1, app, win_idx)
-		context = runtime.default_context()
+		context = app_context
 		lua_set_window_table(L, c.int(win_idx))
 		return 1
 	case .STRING:
@@ -144,12 +146,12 @@ lua_window__newindex :: proc "c" (L: ^lua.State) -> c.int {
 			lua.L_error(L, "Value should be between [1, %d]", MAX_WAVEFORM_FRAMES)
 		}
 		we_state := &app.state.we[win_idx]
-		context = runtime.default_context()
+		context = app_context
 		undo_redo_manager_undo_setmaxframes(&we_state.undo_redo, app, win_idx, we_state.num_frames)
 		set_frames(app, win_idx, i32(value))
 		we_state.num_frames = i32(value)
 	case "samples":
-		context = runtime.default_context()
+		context = app_context
 		we_state := &app.state.we[win_idx]
 		if value <= 0 || value > MAX_WAVEFORM_EDITOR_POINTS {
 			lua.L_error(
@@ -416,7 +418,7 @@ _lua_check_frame :: proc "contextless" (
 //odinfmt: disable
 lua_waveform_effects :: [?]LuaCustomFunction{
     {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = runtime.default_context()
+		context = app_context
 		app := lua_get_app(L)
 		gain_v:f32 = f32(lua.tonumber(L, 1))
 		_lua_waveform_check_clamp_or_error(L, 1, gain_v, effect_gain_clamp.min, effect_gain_clamp.max)
@@ -428,7 +430,7 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		return 0
 	}, lua_name = "gain"},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = runtime.default_context()
+		context = app_context
 		app := lua_get_app(L)
 		normal_v:f32 = f32(lua.tonumber(L, 1))
 		_lua_waveform_check_clamp_or_error(L, 1, normal_v, effect_normalization_clamp.min, effect_normalization_clamp.max)
@@ -440,7 +442,7 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		return 0
 	}, lua_name = "normalization"},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = runtime.default_context()
+		context = app_context
 		app := lua_get_app(L)
 		ch_phase_v:i32 = i32(lua.tointeger(L, 1))
 		frame, win_i := _lua_check_frame_window(L, app, 1)
@@ -453,7 +455,7 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		return 0
 	}, lua_name = "change_phase"},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = runtime.default_context()
+		context = app_context
 		app := lua_get_app(L)
 		comb_m_v:f32 = f32(lua.tonumber(L, 1))
 		_lua_waveform_check_clamp_or_error(L, 1, comb_m_v, effect_comb_fff_clamp_m.min, effect_comb_fff_clamp_m.max)
@@ -467,7 +469,7 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		return 0
 	}, lua_name = "comb_feed_forward"},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = runtime.default_context()
+		context = app_context
 		app := lua_get_app(L)
 		frame, win_i := _lua_check_frame_window(L, app, 0)
 		we_state := &app.state.we[win_i]
@@ -477,7 +479,7 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		return 0
 	}, lua_name = "inversion"},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = runtime.default_context()
+		context = app_context
 		app := lua_get_app(L)
 		frame, win_i := _lua_check_frame_window(L, app, 0)
 		we_state := &app.state.we[win_i]
@@ -487,7 +489,7 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		return 0
 	}, lua_name = "fuzz"},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = runtime.default_context()
+		context = app_context
 		app := lua_get_app(L)
 		hard_clip_v:f32 = f32(lua.tonumber(L, 1))
 		_lua_waveform_check_clamp_or_error(L, 1, hard_clip_v, effect_hard_clip_clamp.min, effect_hard_clip_clamp.max)
@@ -499,7 +501,7 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		return 0
 	}, lua_name = "hard_clip"},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = runtime.default_context()
+		context = app_context
 		app := lua_get_app(L)
 		soft_clip_v:f32 = f32(lua.tonumber(L, 1))
 		_lua_waveform_check_clamp_or_error(L, 1, soft_clip_v, effect_soft_clip_clamp.min, effect_soft_clip_clamp.max)
@@ -511,7 +513,7 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		return 0
 	}, lua_name = "soft_clip"},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = runtime.default_context()
+		context = app_context
 		app := lua_get_app(L)
 		bitcrush_v:i32 = i32(lua.tointeger(L, 1))
 		_lua_waveform_check_clamp_or_error(L, 1, bitcrush_v, effect_bit_crusher_clamp.min+1, effect_bit_crusher_clamp.max+1)
@@ -523,7 +525,7 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		return 0
 	}, lua_name = "bit_crusher"},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = runtime.default_context()
+		context = app_context
 		app := lua_get_app(L)
 		wavefold_v:f32 = f32(lua.tonumber(L, 1))
 		_lua_waveform_check_clamp_or_error(L, 1, wavefold_v, effect_triangle_folding_clamp.min, effect_triangle_folding_clamp.max)
@@ -535,7 +537,7 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		return 0
 	}, lua_name = "triangle_fold"},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = runtime.default_context()
+		context = app_context
 		app := lua_get_app(L)
 		cheb_n_v:f32 = f32(lua.tonumber(L, 1))
 		frame, win_i := _lua_check_frame_window(L, app, 1)
@@ -548,7 +550,7 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		return 0
 	}, lua_name = "chebyshev_fold"},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = runtime.default_context()
+		context = app_context
 		app := lua_get_app(L)
 		overtone_v:i32 = i32(lua.tointeger(L, 1))
 		_lua_waveform_check_clamp_or_error(L, 1, overtone_v, effect_n_overtone_clamp.min, effect_n_overtone_clamp.max)
@@ -560,7 +562,7 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		return 0
 	}, lua_name = "n_overtone"},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = runtime.default_context()
+		context = app_context
 		app := lua_get_app(L)
 		n_samp_v:i32 = i32(lua.tointeger(L, 1))
 		_lua_waveform_check_clamp_or_error(L, 1, n_samp_v, effect_resampling_clamp.min, effect_resampling_clamp.max)
@@ -584,7 +586,7 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		return 0
 	}, lua_name = "resampling"},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = runtime.default_context()
+		context = app_context
 		app := lua_get_app(L)
 		offset_v:f32 = f32(lua.tonumber(L, 1))
 		_lua_waveform_check_clamp_or_error(L, 1, offset_v, effect_offset_clamp.min, effect_offset_clamp.max)
@@ -596,79 +598,93 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		return 0
 	}, lua_name = "offset"},
 }//odinfmt: enable
-
+_lua_print_is_warn: bool
 lua_print :: proc "c" (L: ^lua.State) -> c.int {
-	context = runtime.default_context()
+	context = app_context
+	app := lua_get_app(L)
+	sb := strings.builder_make(context.temp_allocator)
 	n := lua.gettop(L)
 	for i in 1 ..= n {
 		switch lua.Type(lua.type(L, i)) {
 		case .NONE:
-			fmt.print("(none)")
+			fmt.sbprint(&sb, "(none)")
 		case .NIL:
-			fmt.print("nil")
+			fmt.sbprint(&sb, "nil")
 		case .BOOLEAN:
-			fmt.print(lua.toboolean(L, i))
+			fmt.sbprint(&sb, lua.toboolean(L, i))
 		case .LIGHTUSERDATA:
-			fmt.printf("lua.lightuserdata@{}", lua.topointer(L, i))
+			fmt.sbprintf(&sb, "lua.lightuserdata@{}", lua.topointer(L, i))
 		case .NUMBER:
-			fmt.print(lua.tonumber(L, i))
+			fmt.sbprint(&sb, lua.tonumber(L, i))
 		case .STRING:
-			fmt.print("\"", lua.tostring(L, i), "\"", sep = "")
+			if !_lua_print_is_warn {
+				fmt.sbprint(&sb, "\"", lua.tostring(L, i), "\"", sep = "")
+			} else {
+				fmt.sbprint(&sb, lua.tostring(L, i))
+			}
 		case .TABLE:
-			fmt.print("lua.table{")
+			fmt.sbprint(&sb, "lua.table{")
 			lua.pushnil(L)
 			for lua.next(L, i) != 0 {
 				#partial switch lua.Type(lua.type(L, -2)) {
 				case .BOOLEAN:
-					fmt.print(lua.toboolean(L, -2))
+					fmt.sbprint(&sb, lua.toboolean(L, -2))
 				case .LIGHTUSERDATA:
-					fmt.printf("lua.lightuserdata@{}", lua.topointer(L, -2))
+					fmt.sbprintf(&sb, "lua.lightuserdata@{}", lua.topointer(L, -2))
 				case .NUMBER:
-					fmt.print("[", lua.tonumber(L, -2), "]", sep = "")
+					fmt.sbprint(&sb, "[", lua.tonumber(L, -2), "]", sep = "")
 				case .STRING:
-					fmt.print("\"", lua.tostring(L, -2), "\"", sep = "")
+					fmt.sbprint(&sb, "\"", lua.tostring(L, -2), "\"", sep = "")
 				case .TABLE:
-					fmt.print("lua.table{...}")
+					fmt.sbprint(&sb, "lua.table{...}")
 				case .FUNCTION:
-					fmt.printf("function@{}", lua.topointer(L, -2))
+					fmt.sbprintf(&sb, "function@{}", lua.topointer(L, -2))
 				case .USERDATA:
-					fmt.printf("lua.userdata@{}", lua.topointer(L, -2))
+					fmt.sbprintf(&sb, "lua.userdata@{}", lua.topointer(L, -2))
 				case .THREAD:
-					fmt.printf("lua.thread@{}", lua.topointer(L, -2))
+					fmt.sbprintf(&sb, "lua.thread@{}", lua.topointer(L, -2))
 				}
-				fmt.print(" = ")
+				fmt.sbprint(&sb, " = ")
 				#partial switch lua.Type(lua.type(L, -1)) {
 				case .BOOLEAN:
-					fmt.print(lua.toboolean(L, -1))
+					fmt.sbprint(&sb, lua.toboolean(L, -1))
 				case .LIGHTUSERDATA:
-					fmt.printf("lua.lightuserdata@{}", lua.topointer(L, -1))
+					fmt.sbprintf(&sb, "lua.lightuserdata@{}", lua.topointer(L, -1))
 				case .NUMBER:
-					fmt.print(lua.tonumber(L, -1))
+					fmt.sbprint(&sb, lua.tonumber(L, -1))
 				case .STRING:
-					fmt.print("\"", lua.tostring(L, -1), "\"", sep = "")
+					fmt.sbprint(&sb, "\"", lua.tostring(L, -1), "\"", sep = "")
 				case .TABLE:
-					fmt.print("lua.table{...}")
+					fmt.sbprint(&sb, "lua.table{...}")
 				case .FUNCTION:
-					fmt.printf("function@{}", lua.topointer(L, -1))
+					fmt.sbprintf(&sb, "function@{}", lua.topointer(L, -1))
 				case .USERDATA:
-					fmt.printf("lua.userdata@{}", lua.topointer(L, -1))
+					fmt.sbprintf(&sb, "lua.userdata@{}", lua.topointer(L, -1))
 				case .THREAD:
-					fmt.printf("lua.thread@{}", lua.topointer(L, -1))
+					fmt.sbprintf(&sb, "lua.thread@{}", lua.topointer(L, -1))
 				}
 				lua.pop(L, 1)
-				fmt.print(", ")
+				fmt.sbprint(&sb, ", ")
 			}
-			fmt.print("}")
+			fmt.sbprint(&sb, "}")
 		case .FUNCTION:
-			fmt.printf("function@{}", lua.topointer(L, i))
+			fmt.sbprintf(&sb, "function@{}", lua.topointer(L, i))
 		case .USERDATA:
-			fmt.printf("lua.userdata@{}", lua.topointer(L, i))
+			fmt.sbprintf(&sb, "lua.userdata@{}", lua.topointer(L, i))
 		case .THREAD:
-			fmt.printf("lua.thread@{}", lua.topointer(L, i))
+			fmt.sbprintf(&sb, "lua.thread@{}", lua.topointer(L, i))
 		}
-		if i < n do fmt.print(" ")
+		if i < n do fmt.sbprint(&sb, " ")
 	}
-	fmt.println()
+	str_output := strings.to_string(sb)
+	output_log_print(
+		&app.state.output_log,
+		.Warn if _lua_print_is_warn else .Info,
+		"script.lua",
+		str_output,
+	)
+	fmt.println(str_output)
+	_lua_print_is_warn = false
 	return 0
 }
 
@@ -709,7 +725,7 @@ lua_data_functions :: [?]LuaCustomFunction{
 		if frame_from == frame_to { //Because of copy_non_overlapping
 			return 0
 		}
-		context = runtime.default_context()
+		context = app_context
 		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame_from)
 		we_state.data_frame = frame_to
 		for i in 0..<we_state.num_points {
@@ -733,7 +749,7 @@ lua_data_functions :: [?]LuaCustomFunction{
 		if frame_from == frame_to { //Because of copy_non_overlapping
 			return 0
 		}
-		context = runtime.default_context()
+		context = app_context
 		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame_from)
 		we_state.data_frame = frame_to
 		for i in 0..<we_state.num_points {
@@ -761,7 +777,7 @@ lua_data_functions :: [?]LuaCustomFunction{
 		if frame_from == frame_to { //Because of copy_non_overlapping
 			return 0
 		}
-		context = runtime.default_context()
+		context = app_context
 		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame_from)
 		we_state.data_frame = frame_to
 		for i in 0..<we_state.num_points {
@@ -777,7 +793,7 @@ lua_data_functions :: [?]LuaCustomFunction{
 		app := lua_get_app(L)
 		frame, win_i := _lua_check_frame_window(L, app, 0)
 		we_state := &app.state.we[win_i]
-		context = runtime.default_context()
+		context = app_context
 		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
 		for i in 0..<we_state.num_points {
 			undo_redo_manager_undo_wedraw(&we_state.undo_redo, app, win_i, i, frame)
@@ -807,7 +823,7 @@ lua_data_functions :: [?]LuaCustomFunction{
 		we_state.data_frame = frame
 		for lua.next(L, 1) != 0 {
 			if lua.isinteger(L, -2) && lua.isnumber(L, -1) {
-				context = runtime.default_context()
+				context = app_context
 				undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
 				lua_i:int = int(lua.tointeger(L, -2))
 				data_f:f32 = f32(lua.tonumber(L, -1))
@@ -827,7 +843,7 @@ lua_apply_preset :: proc "c" (L: ^lua.State) -> c.int {
 	preset_value := LuaPresetChoose(lua.tointeger(L, 1))
 	frame, win_i := _lua_check_frame_window(L, app, 1)
 	we_state := &app.state.we[win_i]
-	context = runtime.default_context()
+	context = app_context
 	undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
 	we_state.data_frame = frame
 	switch preset_value {
@@ -856,7 +872,7 @@ lua_apply_preset :: proc "c" (L: ^lua.State) -> c.int {
 lua_harmonics_functions :: [?]LuaCustomFunction{
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
 		app := lua_get_app(L)
-		context = runtime.default_context()
+		context = app_context
 		frame, win_i := _lua_check_frame_window(L, app, 0)
 		we_state := &app.state.we[win_i]
 		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
@@ -866,7 +882,7 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 	}, lua_name = "update"},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
 		app := lua_get_app(L)
-		context = runtime.default_context()
+		context = app_context
 		frame, win_i := _lua_check_frame_window(L, app, 0)
 		we_state := &app.state.we[win_i]
 		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
@@ -875,7 +891,7 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		return 0
 	}, lua_name = "apply"},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = runtime.default_context()
+		context = app_context
 		app := lua_get_app(L)
 		frame, win_i := _lua_check_frame_window(L, app, 1)
 		wfm := &app.state.we_h_wfs[win_i]
@@ -890,7 +906,7 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		return 0
 	}, lua_name = "low_pass"},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = runtime.default_context()
+		context = app_context
 		app := lua_get_app(L)
 		frame, win_i := _lua_check_frame_window(L, app, 1)
 		wfm := &app.state.we_h_wfs[win_i]
@@ -905,7 +921,7 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		return 0
 	}, lua_name = "high_pass"},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = runtime.default_context()
+		context = app_context
 		app := lua_get_app(L)
 		frame, win_i := _lua_check_frame_window(L, app, 0)
 		we_state := &app.state.we[win_i]
@@ -916,7 +932,7 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		return 0
 	}, lua_name = "only_odd"},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = runtime.default_context()
+		context = app_context
 		app := lua_get_app(L)
 		frame, win_i := _lua_check_frame_window(L, app, 0)
 		we_state := &app.state.we[win_i]
@@ -927,7 +943,7 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		return 0
 	}, lua_name = "only_even"},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = runtime.default_context()
+		context = app_context
 		app := lua_get_app(L)
 		frame, win_i := _lua_check_frame_window(L, app, 1)
 		h_shift_by:f32 = f32(lua.tonumber(L, 1))
@@ -939,7 +955,7 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		return 0
 	}, lua_name = "shift"},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = runtime.default_context()
+		context = app_context
 		app := lua_get_app(L)
 		frame, win_i := _lua_check_frame_window(L, app, 1)
 		wfm := &app.state.we_h_wfs[win_i]
@@ -952,7 +968,7 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		return 1
 	}, lua_name = "amplitude_r"},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = runtime.default_context()
+		context = app_context
 		app := lua_get_app(L)
 		frame, win_i := _lua_check_frame_window(L, app, 2)
 		wfm := &app.state.we_h_wfs[win_i]
@@ -966,7 +982,7 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		return 0
 	}, lua_name = "amplitude_w"},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = runtime.default_context()
+		context = app_context
 		app := lua_get_app(L)
 		frame, win_i := _lua_check_frame_window(L, app, 1)
 		wfm := &app.state.we_h_wfs[win_i]
@@ -979,7 +995,7 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		return 1
 	}, lua_name = "phase_r"},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = runtime.default_context()
+		context = app_context
 		app := lua_get_app(L)
 		frame, win_i := _lua_check_frame_window(L, app, 1)
 		wfm := &app.state.we_h_wfs[win_i]
@@ -1020,7 +1036,7 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		if !lua.istable(L, table_i) {
 			lua.L_error(L, "Argument #1 must be a table")
 		}
-		context = runtime.default_context()
+		context = app_context
 		frame, win_i := _lua_check_frame_window(L, app, 1)
 		we_state := &app.state.we[win_i]
 		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
@@ -1113,7 +1129,7 @@ _lua_data :: proc "c" (
 	win_i: int,
 	data_frame: f32,
 ) -> c.int {
-	context = runtime.default_context()
+	context = app_context
 	we_state := &app.state.we[win_i]
 	n := lua.gettop(L)
 	if n <= shift_by {
@@ -1138,8 +1154,7 @@ _lua_data :: proc "c" (
 			lua.pushnumber(
 				L,
 				lua.Number(
-					we_state.data[data_index(data_frame_int, u32(data_i_int))] +
-					slope * rem,
+					we_state.data[data_index(data_frame_int, u32(data_i_int))] + slope * rem,
 				),
 			)
 			return 1
@@ -1150,8 +1165,7 @@ _lua_data :: proc "c" (
 			lua.pushnumber(
 				L,
 				lua.Number(
-					we_state.data[data_index(data_frame_int, u32(data_i_int))] +
-					slope * frame_rem,
+					we_state.data[data_index(data_frame_int, u32(data_i_int))] + slope * frame_rem,
 				),
 			)
 			return 1

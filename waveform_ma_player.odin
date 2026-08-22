@@ -50,7 +50,7 @@ ma_callback :: proc "c" (ma_device: ^ma.device, output, input: rawptr, frame_cou
 	thread_arr: [MAX_WAVEFORM_EDITOR_WINDOWS]^thread.Thread
 	output_buffer := cast([^]f32)(output)
 	num_threads: int = 0
-	context = runtime.default_context()
+	context = app_context
 	for &we_state in wp.app.state.we[:] {
 		if !we_state.is_active || !we_state.play do continue
 		fadd_arr[num_threads] = {

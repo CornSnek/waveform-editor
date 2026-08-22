@@ -273,7 +273,7 @@ file_explorer_new :: proc(app: ^App, fe_type: FileExplorerType) -> handle_map.Ha
 		destroy_f = f_file_explorer_destroy,
 		position = {{}, UDim{o = 20}},
 		size = {UDim{s = 0.5}, UDim{o = -20, s = 0.5}},
-		flags = {.NoScrollbar, .AlwaysVerticalScrollbar, .NoResize},
+		flags = {.NoScrollbar, .AlwaysVerticalScrollbar},
 	)
 	imgui_obj_add_handle(app, &app.windows.file_explorer.base)
 	return app.windows.file_explorer.base.handle
@@ -286,7 +286,7 @@ f_file_explorer_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata
 	style := imgui.GetStyle()
 	draw_list := imgui.GetWindowDrawList()
 	frame_height := imgui.GetFrameHeight()
-	window_size := udim_get_vec2(base.size, f32(app.config.width), f32(app.config.height))
+	window_size := imgui.GetWindowSize()
 	wp := imgui.GetWindowPos()
 	tl := wp
 	br := wp + imgui.GetWindowSize()

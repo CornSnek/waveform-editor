@@ -15,22 +15,31 @@ import "core:strings"
 import ma "vendor:miniaudio"
 import sdl "vendor:sdl3"
 
+import "./colors"
+import fm "./fourier_model"
 import imgui "imgui:/"
 import imgui_sdl3 "imgui:/imgui_impl_sdl3"
 import imgui_sdlgpu3 "imgui:/imgui_impl_sdlgpu3"
-import "./colors"
-import fm "./fourier_model"
 
-log_fn_context: runtime.Context
+app_context: runtime.Context
 log_fn :: proc "c" (
 	userdata: rawptr,
 	category: sdl.LogCategory,
 	priority: sdl.LogPriority,
 	message: cstring,
 ) {
-	context = log_fn_context
-	//app := cast(^App)(userdata) //TODO
-	log.debugf("[SDL (%v, %v)]: %s", category, priority, message)
+	context = app_context
+	switch priority {
+	case .DEBUG, .VERBOSE, .TRACE:
+		log.debugf("[SDL, %v, %v]: %s", category, priority, message)
+	case .INFO:
+		log.infof("[SDL, %v, %v]: %s", category, priority, message)
+	case .WARN:
+		log.warnf("[SDL, %v, %v]: %s", category, priority, message)
+	case .ERROR, .CRITICAL, .INVALID:
+		log.errorf("[SDL, %v, %v]: %s", category, priority, message)
+	}
+	when ODIN_DEBUG do fmt.printfln("[SDL, %v, %v]: %s", category, priority, message)
 }
 
 AppConfig :: struct {
@@ -82,6 +91,7 @@ AppState :: struct {
 	last_tick:           u64,
 	lua_win_idx:         int,
 	we_edit_s:           WeEditSample,
+	output_log:          OutputLog,
 	we_edit_s_buf:       [dynamic]u8,
 	we_overwrite_lua:    FileExplorerSaveLuaOverwrite,
 	import_buf:          [dynamic]u8,
@@ -140,6 +150,7 @@ ImGuiWindows :: struct {
 	image:            ImGuiWindow,
 	wav_player:       ImGuiWindow,
 	oscilloscope:     ImGuiWindow,
+	output_log:       ImGuiWindow,
 	import_text:      ImGuiWindow,
 	waveform_editors: [MAX_WAVEFORM_EDITOR_WINDOWS]ImGuiWindow,
 	lua:              [MAX_WAVEFORM_EDITOR_WINDOWS]ImGuiWindow,
@@ -195,6 +206,7 @@ app_lock_windows :: proc(app: ^App) {
 }
 
 app_destroy :: proc(app: ^App) {
+	output_log_destroy(&app.state.output_log)
 	file_explorer_save_lua_overwrite_destroy(&app.state.we_overwrite_lua)
 	for tn in TextureNames {
 		sdl.ReleaseGPUTexture(app.gpu, app.textures[tn])
@@ -245,19 +257,20 @@ main :: proc() {
 			mem.tracking_allocator_destroy(&track)
 		}
 	}
-	context.logger = log.create_console_logger(
-		.Debug when ODIN_DEBUG else .Warning,
-		ident = "Main Thread",
-	)
-	defer log.destroy_console_logger(context.logger)
-	log_fn_context = context
+	app: App
+	context.logger = runtime.Logger {
+		data         = &app,
+		lowest_level = .Debug when ODIN_DEBUG else .Info,
+		procedure    = context_log_proc,
+	}
+	app_context = context
 
 	assert(sdl.Init({.VIDEO}))
 	defer sdl.Quit()
 
 	display_scale := sdl.GetDisplayContentScale(sdl.GetPrimaryDisplay())
 	init_path_dir()
-	app := App {
+	app = App {
 		state = {
 			path_files = path_files_new(get_path_dir()) or_else panic("Unable to Allocate"),
 			last_tick = sdl.GetTicks(),
@@ -265,6 +278,7 @@ main :: proc() {
 			import_buf = make([dynamic]u8, 1),
 			fe_choose_buf = make([dynamic]u8, 1),
 			sample_copy_buf = make([dynamic]f32),
+			output_log = output_log_new(),
 		},
 		config = {
 			width         = i32(1280 * display_scale),
@@ -282,6 +296,14 @@ main :: proc() {
 				size = {UDim{s = 0.5}, UDim{s = 0.25, o = -20}},
 				flags = {.NoCollapse, .MenuBar},
 			),
+			output_log = imgui_window_new(
+				"Output Log",
+				0,
+				container_f = f_output_log_draw,
+				position = {{s = 0.5}, UDim{s = 0.25}},
+				size = {UDim{s = 0.5}, UDim{s = 0.25}},
+				flags = {.NoCollapse, .MenuBar},
+			),
 		},
 	}
 	defer app_destroy(&app)
@@ -296,9 +318,10 @@ main :: proc() {
 	handle_map.dynamic_init(&app.imgui_hm, context.allocator)
 	defer handle_map.dynamic_destroy(&app.imgui_hm)
 	imgui_obj_add_handle(&app, &app.windows.oscilloscope.base)
+	imgui_obj_add_handle(&app, &app.windows.output_log.base)
 
+	sdl.SetLogOutputFunction(log_fn, nil)
 	when ODIN_DEBUG {
-		sdl.SetLogOutputFunction(log_fn, &app)
 		sdl.SetLogPriorities(.TRACE)
 	}
 	wprops := sdl.CreateProperties()
@@ -663,7 +686,11 @@ main :: proc() {
 				if imgui.Button("Yes") {
 					we_state := &app.state.we[file_explorer_load_idx]
 					for i in 0 ..< we_state.num_frames {
-						old_wav_file := fmt.tprintf(FILE_EXPLORER_WRITE_WAV_MULTI_STR, feams.file_dir, i)
+						old_wav_file := fmt.tprintf(
+							FILE_EXPLORER_WRITE_WAV_MULTI_STR,
+							feams.file_dir,
+							i,
+						)
 						os.remove(old_wav_file)
 						file_explorer_write_wav_file_frame(&app, feams.file_dir, i)
 					}
@@ -877,7 +904,7 @@ help_marker :: proc(fmt: cstring, args: ..any) {
 
 input_text_resize :: proc "c" (data: ^imgui.InputTextCallbackData) -> i32 {
 	if .CallbackResize in data.Flags {
-		context = runtime.default_context()
+		context = app_context
 		dyn_arr := cast(^[dynamic]u8)data.UserData
 		if cap(dyn_arr) < int(data.BufSize) {
 			new_cap := cap(dyn_arr)

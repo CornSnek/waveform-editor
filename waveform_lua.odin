@@ -140,7 +140,9 @@ we_lua_process_text :: proc(app: ^App, win_idx: int, we_lua_state: ^WELuaState) 
 		),
 	)
 	if status != .OK {
-		log.error("Load error:", lua.tostring(wls.L, -1))
+		cstr := lua.tostring(wls.L, -1)
+		output_log_print(&app.state.output_log, .Error, "script.lua", "{}", cstr)
+		fmt.println(cstr)
 		lua.pop(wls.L, 1)
 		return
 	}
@@ -153,7 +155,9 @@ we_lua_process_text :: proc(app: ^App, win_idx: int, we_lua_state: ^WELuaState) 
 	lua.insert(wls.L, -2) //[text_buf_lua_string, lua_do_traceback]
 	status = lua.Status(lua.pcall(wls.L, 0, lua.MULTRET, -2))
 	if status != .OK {
-		log.error(lua.tostring(wls.L, -1))
+		cstr := lua.tostring(wls.L, -1)
+		output_log_print(&app.state.output_log, .Error, "script.lua", "{}", cstr)
+		fmt.println(cstr)
 		lua.pop(wls.L, 1)
 		for i in 0 ..< MAX_WAVEFORM_EDITOR_WINDOWS {
 			if app.windows.waveform_editors[i].base.is_active {
@@ -183,8 +187,8 @@ lua_do_traceback :: proc "c" (L: ^lua.State) -> c.int {
 }
 lua_warn_f :: proc "c" (userdata: rawptr, msg: rawptr, tocont: c.int) {
 	app := cast(^App)userdata
-	context = runtime.default_context()
-	fmt.println(b32(tocont))
+	context = app_context
+	assert(tocont == 0 || tocont == 1)
 	L := app.state.we_luas[app.state.lua_win_idx].L
 	if app.state.warn_buf != nil {
 		if tocont == 1 {
@@ -194,6 +198,7 @@ lua_warn_f :: proc "c" (userdata: rawptr, msg: rawptr, tocont: c.int) {
 			append(&app.state.warn_buf, ' ')
 			append(&app.state.warn_buf, string(cstring(msg)))
 			append(&app.state.warn_buf, "\x00")
+			_lua_print_is_warn = true
 			lua.pushcfunction(L, lua_print)
 			lua.pushstring(L, cstring(&app.state.warn_buf[0]))
 			lua.call(L, 1, 0)
@@ -202,10 +207,10 @@ lua_warn_f :: proc "c" (userdata: rawptr, msg: rawptr, tocont: c.int) {
 		}
 	} else {
 		app.state.warn_buf = make([dynamic]u8)
-		append(&app.state.warn_buf, "script.Lua warning: ")
 		append(&app.state.warn_buf, string(cstring(msg)))
 		if tocont == 0 {
 			append(&app.state.warn_buf, "\x00")
+			_lua_print_is_warn = true
 			lua.pushcfunction(L, lua_print)
 			lua.pushstring(L, cstring(&app.state.warn_buf[0]))
 			lua.call(L, 1, 0)
