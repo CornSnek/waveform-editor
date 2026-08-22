@@ -100,6 +100,12 @@ f_we_lua_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawpt
 				harmonics_update_model(app, win_idx)
 			}
 		}
+		if imgui.BeginMenu("Window") {
+			defer imgui.EndMenu()
+			if imgui.MenuItem("Show Output Log", selected = app.windows.output_log.show) {
+				app.windows.output_log.show = !app.windows.output_log.show
+			}
+		}
 	}
 	no_kb: if imgui.IsWindowFocused() {
 		if imgui.IsAnyItemActive() do break no_kb

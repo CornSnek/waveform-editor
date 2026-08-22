@@ -475,10 +475,9 @@ main :: proc() {
 				) {
 					app_lock_windows(&app)
 				}
-				imgui.EndMenu()
-			}
-			if imgui.BeginMenu("Help") {
-				imgui.Text("TODO")
+				if imgui.MenuItem("Show Output Log", selected = app.windows.output_log.show) {
+					app.windows.output_log.show = !app.windows.output_log.show
+				}
 				imgui.EndMenu()
 			}
 			imgui.EndMainMenuBar()

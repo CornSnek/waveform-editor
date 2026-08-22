@@ -11,17 +11,18 @@ import imgui "imgui:/"
 
 OUTPUT_LOG_MAX_MESSAGES :: 200
 OutputLog :: struct {
-	buf:        [OUTPUT_LOG_MAX_MESSAGES]OutputLogMessage,
-	head:       i32,
-	tail:       i32,
-	show_debug: bool,
-	show_info:  bool,
-	show_warn:  bool,
-	show_error: bool,
+	buf:           [OUTPUT_LOG_MAX_MESSAGES]OutputLogMessage,
+	head:          i32,
+	tail:          i32,
+	show_debug:    bool,
+	show_info:     bool,
+	show_warn:     bool,
+	show_error:    bool,
+	scroll_to_end: bool,
 }
 
 output_log_new :: proc() -> OutputLog {
-	return {show_info = true, show_warn = true, show_error = true}
+	return {show_info = true, show_warn = true, show_error = true, scroll_to_end = true}
 }
 output_log_print :: proc(
 	self: ^OutputLog,
@@ -53,7 +54,7 @@ context_log_proc :: proc(
 	location := #caller_location,
 ) {
 	app := cast(^App)data
-	ol_type: OutputLogMessageType = ---
+	ol_type: OutputLogMessageType
 	switch level {
 	case .Debug:
 		ol_type = .Debug
@@ -105,6 +106,7 @@ OutputLogTypeColor := [OutputLogMessageType]u32be {
 	.Error  = 0xff0000ff,
 }
 f_output_log_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: rawptr) {
+	window := cast(^ImGuiWindow)base
 	olstate := &app.state.output_log
 	type_names := reflect.enum_field_names(OutputLogMessageType)
 	next_msg_loop: for count, n := 0, olstate.tail; true; n = (n + 1) % OUTPUT_LOG_MAX_MESSAGES {
@@ -112,13 +114,13 @@ f_output_log_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: r
 		if next_msg.type == .Uninit do break
 		#partial switch next_msg.type {
 		case .Debug:
-            if !olstate.show_debug do continue next_msg_loop
+			if !olstate.show_debug do continue next_msg_loop
 		case .Info:
-            if !olstate.show_info do continue next_msg_loop
+			if !olstate.show_info do continue next_msg_loop
 		case .Warn:
-            if !olstate.show_warn do continue next_msg_loop
+			if !olstate.show_warn do continue next_msg_loop
 		case .Error:
-            if !olstate.show_error do continue next_msg_loop
+			if !olstate.show_error do continue next_msg_loop
 		}
 		msg1 := fmt.tprintf(
 			"[{}, {}][{}]\x00",
@@ -138,6 +140,9 @@ f_output_log_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: r
 		count += 1
 		if count == OUTPUT_LOG_MAX_MESSAGES do break
 	}
+	if olstate.scroll_to_end {
+		window.keep_scroll_here = [2]f32{0, imgui.GetScrollMaxY()}
+	}
 	if imgui.BeginMenuBar() {
 		defer imgui.EndMenuBar()
 		if imgui.BeginMenu("Filter") {
@@ -146,6 +151,10 @@ f_output_log_draw :: proc(base: ^ImGuiBase, app: ^App, win_idx: int, userdata: r
 			imgui.Checkbox("Info", &olstate.show_info)
 			imgui.Checkbox("Warn", &olstate.show_warn)
 			imgui.Checkbox("Error", &olstate.show_error)
+		}
+		if imgui.BeginMenu("Window") {
+			defer imgui.EndMenu()
+			imgui.Checkbox("Scroll to End", &olstate.scroll_to_end)
 		}
 	}
 }
