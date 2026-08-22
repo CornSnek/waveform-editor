@@ -8,6 +8,25 @@ import "core:strings"
 
 import imgui "imgui:/"
 import fm "./fourier_model"
+
+harmonics_window_new :: proc(we_base: ^ImGuiWindow, app: ^App, win_idx: int) {
+	if !app.windows.harmonics[win_idx].is_active {
+		id_sb := strings.builder_make()
+		fmt.sbprintf(&id_sb, "Harmonics %d\x00", win_idx + 1)
+		app.windows.harmonics[win_idx] = imgui_window_new(
+			id_sb,
+			win_idx,
+			{{}, {we_base.position.y.s + we_base.size.y.s, 0}},
+			{{we_base.size.x.s/2, 0}, {we_base.size.y.s, 0}},
+			{.MenuBar, .HorizontalScrollbar},
+			container_f = f_harmonics_draw,
+			destroy_f = f_harmonics_destroy,
+		)
+		imgui_window_add_handle(app, &app.windows.harmonics[win_idx])
+		harmonics_update_model(app, win_idx)
+	} else do app.windows.harmonics[win_idx].show = false
+}
+
 harmonics_update_model :: proc(app: ^App, win_idx: int) {
 	fm.waveform_model_destroy(&app.state.we_h_wfs[win_idx])
 	we_state := &app.state.we[win_idx]

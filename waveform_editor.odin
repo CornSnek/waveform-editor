@@ -844,10 +844,10 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 				"Ctrl+H",
 				app.windows.harmonics[win_idx].is_active,
 			) {
-				_add_harmonics_window(base, app, win_idx)
+				harmonics_window_new(base, app, win_idx)
 			}
 			if imgui.MenuItem("Lua", "Ctrl+L", app.windows.lua[win_idx].is_active) {
-				_add_lua_window(base, app, win_idx)
+				lua_window_new(base, app, win_idx)
 			}
 			sync.mutex_lock(&wp_mutex)
 			last_num_points := we_state.num_points //To make undo_redo_manager get the value of unedited and not first edit.
@@ -1089,7 +1089,7 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 			)
 			imgui.EndMenu()
 		}
-		if imgui.BeginMenu("Effect") {
+		if imgui.BeginMenu("Effects") {
 			defer imgui.EndMenu()
 			_we_keybinds(base, app, we_state, win_idx, i32(image_mouse_pos.x / bar_width_unsized))
 			if imgui.MenuItem("Reapply Last Effect", "Ctrl+Shift+E") {
@@ -1346,42 +1346,6 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 	}
 }
 
-_add_harmonics_window :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int) {
-	if !app.windows.harmonics[win_idx].is_active {
-		id_sb := strings.builder_make()
-		fmt.sbprintf(&id_sb, "Harmonics %d\x00", win_idx + 1)
-		app.windows.harmonics[win_idx] = imgui_window_new(
-			id_sb,
-			win_idx,
-			{{}, {base.position.y.s + base.size.y.s, 0}},
-			{{base.size.x.s, 0}, {base.size.y.s, 0}},
-			{.MenuBar, .HorizontalScrollbar},
-			container_f = f_harmonics_draw,
-			destroy_f = f_harmonics_destroy,
-		)
-		imgui_window_add_handle(app, &app.windows.harmonics[win_idx])
-		harmonics_update_model(app, win_idx)
-	} else do app.windows.harmonics[win_idx].show = false
-}
-
-_add_lua_window :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int) {
-	if !app.windows.lua[win_idx].is_active {
-		app.state.we_luas[win_idx] = we_lua_state_new(app)
-		id_sb := strings.builder_make()
-		fmt.sbprintf(&id_sb, "Lua %d\x00", win_idx + 1)
-		app.windows.lua[win_idx] = imgui_window_new(
-			id_sb,
-			win_idx,
-			{{}, {base.position.y.s + base.size.y.s, 0}},
-			{{base.size.x.s, 0}, {base.size.y.s, 0}},
-			{.MenuBar, .HorizontalScrollbar},
-			container_f = f_we_lua_draw,
-			destroy_f = f_we_lua_destroy,
-		)
-		imgui_window_add_handle(app, &app.windows.lua[win_idx])
-	} else do app.windows.lua[win_idx].show = false
-}
-
 f_waveform_editor_destroy :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
 	app.state.we_edit_s.status = .None
 	we_state := &app.state.we[win_idx]
@@ -1526,10 +1490,10 @@ _we_keybinds :: proc(
 			we_state.last_effect_vf(app, win_idx)
 		}
 		if imgui.IsKeyPressed(.H, false) {
-			_add_harmonics_window(base, app, win_idx)
+			harmonics_window_new(base, app, win_idx)
 		}
 		if imgui.IsKeyPressed(.L, false) {
-			_add_lua_window(base, app, win_idx)
+			lua_window_new(base, app, win_idx)
 		}
 		if imgui.IsKeyPressed(.Space, false) {
 			sync.mutex_guard(&wp_mutex)

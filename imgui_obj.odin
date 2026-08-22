@@ -15,7 +15,12 @@ UDim :: struct {
 UDim2 :: distinct [2]UDim
 
 //Virtual function pointer defined here. Otherwise, odin will not build/run due to pointer app: ^App
-ImGuiF_1BaseP2AppP3RawP :: #type proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr)
+ImGuiF_1BaseP2AppP3RawP :: #type proc(
+	base: ^ImGuiWindow,
+	app: ^App,
+	win_idx: int,
+	userdata: rawptr,
+)
 vf_1b2a3r_none :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {}
 //Static or Dynamic null-terminated title
 IDTitle :: union #no_nil {
@@ -40,7 +45,7 @@ ImGuiWindow :: struct {
 	show:             bool,
 }
 ImGuiWindowHandle :: struct {
-	window:   ^ImGuiWindow,
+	window: ^ImGuiWindow,
 	handle: handle_map.Handle16,
 }
 

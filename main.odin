@@ -303,6 +303,7 @@ main :: proc() {
 				position = {{s = 0.5}, UDim{s = 0.25}},
 				size = {UDim{s = 0.5}, UDim{s = 0.25}},
 				flags = {.NoCollapse, .MenuBar},
+				show = false,
 			),
 		},
 	}

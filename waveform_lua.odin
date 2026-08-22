@@ -28,22 +28,37 @@ we_lua_state_destroy :: proc(self: ^WELuaState) {
 	delete(self.text_buf)
 }
 
+lua_window_new :: proc(we_base: ^ImGuiWindow, app: ^App, win_idx: int) {
+	if !app.windows.lua[win_idx].is_active {
+		app.state.we_luas[win_idx] = we_lua_state_new(app)
+		id_sb := strings.builder_make()
+		fmt.sbprintf(&id_sb, "Lua %d\x00", win_idx + 1)
+		app.windows.lua[win_idx] = imgui_window_new(
+			id_sb,
+			win_idx,
+			{{we_base.size.x.s/2, 0}, {we_base.position.y.s + we_base.size.y.s, 0}},
+			{{we_base.size.x.s/2, 0}, {we_base.size.y.s, 0}},
+			{.MenuBar, .HorizontalScrollbar},
+			container_f = f_we_lua_draw,
+			destroy_f = f_we_lua_destroy,
+		)
+		imgui_window_add_handle(app, &app.windows.lua[win_idx])
+	} else do app.windows.lua[win_idx].show = false
+}
+
 f_we_lua_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
-	imgui.SetNextItemWidth(-1)
+	window_size := imgui.GetContentRegionAvail()
 	we_lua_state := &app.state.we_luas[win_idx]
 	imgui.InputTextMultiline(
 		"##Lua Input",
 		cstring(&we_lua_state.text_buf[0]),
 		len(we_lua_state.text_buf),
+		size = window_size,
 		flags = {.WordWrap, .CallbackResize, .AllowTabInput},
 		callback = input_text_resize,
 		user_data = &we_lua_state.text_buf,
 	)
 	imgui.SetNextItemWidth(-1)
-	if imgui.Button("Process Lua Script") {
-		input_text_shrink(&we_lua_state.text_buf)
-		we_lua_process_text(app, win_idx, we_lua_state)
-	}
 	we_state := &app.state.we[win_idx]
 	if imgui.BeginMenuBar() {
 		defer imgui.EndMenuBar()
@@ -98,6 +113,10 @@ f_we_lua_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: raw
 				undo_redo_manager_do_redo(&we_state.undo_redo, app)
 				harmonics_update_model(app, win_idx)
 			}
+			if imgui.MenuItem("Run Lua Script", "Ctrl+R") {
+				input_text_shrink(&we_lua_state.text_buf)
+				we_lua_process_text(app, win_idx, we_lua_state)
+			}
 		}
 		if imgui.BeginMenu("Window") {
 			defer imgui.EndMenu()
@@ -107,6 +126,12 @@ f_we_lua_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: raw
 		}
 	}
 	no_kb: if imgui.IsWindowFocused() {
+		if imgui.IsKeyDown(.ImGuiMod_Ctrl) {
+			if imgui.IsKeyPressed(.R) {
+				input_text_shrink(&we_lua_state.text_buf)
+				we_lua_process_text(app, win_idx, we_lua_state)
+			}
+		}
 		if imgui.IsAnyItemActive() do break no_kb
 		zb := imgui.GetKeyData(.Z)
 		if imgui.IsKeyDown(.ImGuiMod_Shift) {
