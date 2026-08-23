@@ -62,7 +62,7 @@ ResizeWindowsState :: enum {
 }
 
 EventCall :: struct {
-	window:     ^ImGuiWindow,
+	window:   ^ImGuiWindow,
 	event_f:  ImGuiF_1BaseP2AppP3RawP,
 	win_idx:  int,
 	userdata: rawptr,

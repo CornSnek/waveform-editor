@@ -9,9 +9,13 @@ Created using the [Odin Programming Language](https://github.com/odin-lang/Odin)
   - (Current version used: odin version dev-2026-07:301c287de)
 - [Odin Imgui](https://gitlab.com/L-4/odin-imgui)
 ### Build Steps
+```sh
+# For Odin Imgui, follow the steps for your operating system to build the libraries.\
+# To build the binary for this application
+odin build . -collection:imgui=/path/to/odin-imgui/ -o: speed
+```
 ```json
-//For Odin Imgui, follow the steps for your operating system to build the libraries.
-//Then edit ols.json with the Odin Imgui path for ols to work
+//Optionally, edit ols.json with the following for ols to work
 {
     "collections": [
         {
@@ -20,10 +24,5 @@ Created using the [Odin Programming Language](https://github.com/odin-lang/Odin)
     ]
 }
 ```
-```sh
-# To build the binary
-odin build . -collection:imgui=/path/to/odin-imgui/ -o: speed
-```
-
 ### Usage
 TODO

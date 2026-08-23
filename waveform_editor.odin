@@ -12,9 +12,9 @@ import "core:strconv"
 import "core:strings"
 import "core:sync"
 
-import imgui "imgui:/"
 import "./assets"
 import "./colors"
+import imgui "imgui:/"
 import ma "vendor:miniaudio"
 
 //data is a combined array of frames * MAX_WAVEFORM_EDITOR_POINTS
@@ -839,11 +839,7 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 				reset_phases(app)
 				sync.mutex_unlock(&wp_mutex)
 			}
-			if imgui.MenuItem(
-				"Harmonics",
-				"Ctrl+H",
-				app.windows.harmonics[win_idx].is_active,
-			) {
+			if imgui.MenuItem("Harmonics", "Ctrl+H", app.windows.harmonics[win_idx].is_active) {
 				harmonics_window_new(base, app, win_idx)
 			}
 			if imgui.MenuItem("Lua", "Ctrl+L", app.windows.lua[win_idx].is_active) {
@@ -1082,11 +1078,7 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 				"Interpolates values between sample points using the following\nNone: Interpolate using the leftmost point only\nLinear: Interpolation between the last and next point\nCubic Hermite: Interpolation using 4 points (f(x_m1), f(x0), f(x1), f(x2))\nto calculate between x0 and x1",
 			)
 			imgui.Text("Audio Interpolation")
-			imgui.Combo(
-				"##Interpolation",
-				cast(^i32)&we_state.interp_v,
-				_INTERPOLATION_TYPE_CSTR,
-			)
+			imgui.Combo("##Interpolation", cast(^i32)&we_state.interp_v, _INTERPOLATION_TYPE_CSTR)
 			imgui.EndMenu()
 		}
 		if imgui.BeginMenu("Effects") {
@@ -1228,11 +1220,7 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 					effect_bit_crusher(app, win_idx)
 					we_state.last_effect_vf = effect_bit_crusher
 				}
-				imgui.Combo(
-					"##Set Bits",
-					cast(^i32)&we_state.bitcrush_v,
-					_WAVEFORM_BITCRUSH_CSTR,
-				)
+				imgui.Combo("##Set Bits", cast(^i32)&we_state.bitcrush_v, _WAVEFORM_BITCRUSH_CSTR)
 			}
 
 			help_marker(
@@ -1368,11 +1356,7 @@ f_waveform_editor_destroy :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, u
 	if lua_window.is_active {
 		queue.push_back(
 			&app.state.events_f,
-			EventCall {
-				window = lua_window,
-				event_f = lua_window._destroy,
-				win_idx = win_idx,
-			},
+			EventCall{window = lua_window, event_f = lua_window._destroy, win_idx = win_idx},
 		)
 	}
 }
@@ -1676,6 +1660,7 @@ _we_keybinds :: proc(
 
 import_min: i32 = 0
 import_max: i32 = 63
+import_samples: i32 = 64
 import_sep: [dynamic]u8
 _parse_to_data :: proc(
 	app: ^App,
@@ -1683,12 +1668,15 @@ _parse_to_data :: proc(
 	win_idx, begin_i, i: int,
 	num_i: ^int,
 ) {
-	sync.mutex_guard(&wp_mutex)
 	if num_i^ == int(we_state.num_points) {
-		if we_state.num_points == MAX_WAVEFORM_EDITOR_POINTS {
+		if we_state.data_frame == MAX_WAVEFORM_FRAMES - 1 {
 			return
 		}
-		we_state.num_points += 1
+		undo_redo_manager_undo_setmaxframes(&we_state.undo_redo, app, win_idx, we_state.num_frames + 1)
+		set_frames(app, win_idx, we_state.num_frames + 1)
+		we_state.num_frames += 1
+		we_state.data_frame += 1
+		num_i^ = 0
 	}
 	num, ok := strconv.parse_int(string(app.state.import_buf[begin_i:i]))
 	assert(ok)
@@ -1705,7 +1693,7 @@ _parse_to_data :: proc(
 	num_i^ += 1
 }
 create_import_export_window :: proc(
-	base: ^ImGuiWindow,
+	we_base: ^ImGuiWindow,
 	app: ^App,
 	win_idx: int,
 	ie_text: ImportExportText,
@@ -1717,7 +1705,7 @@ create_import_export_window :: proc(
 		app.windows.import_text = imgui_window_new(
 			title,
 			win_idx,
-			{{base.size.x.s / 4, 0}, {base.position.y.s + base.size.y.s / 4, 0}},
+			{{we_base.size.x.s / 4, 0}, {we_base.position.y.s + we_base.size.y.s / 4, 0}},
 			{{0, 600}, {0, 220}},
 			{.NoCollapse},
 			container_f = f_import_export_text,
@@ -1725,7 +1713,7 @@ create_import_export_window :: proc(
 		)
 		h := handle_map.add(&app.imgui_hm, ImGuiWindowHandle{window = &app.windows.import_text})
 		app.windows.import_text.handle = h
-		base.depends_on = h
+		we_base.depends_on = h
 	} else {
 		tooltip_change(
 			&app.state.tooltip,
@@ -1747,6 +1735,24 @@ f_import_export_text :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userda
 		{imgui.GetWindowSize().x - style.WindowPadding.x - style.ItemSpacing.x, 0},
 	) {
 		if ie_text == .Import {
+			undo_redo_manager_undo_add_stop(&we_state.undo_redo)
+			undo_redo_manager_undo_wenumpoints(
+				&we_state.undo_redo,
+				app,
+				win_idx,
+				we_state.num_points,
+			)
+			sync.mutex_lock(&wp_mutex)
+			we_state.num_points = import_samples
+			sync.mutex_unlock(&wp_mutex)
+			undo_redo_manager_undo_setmaxframes(
+				&we_state.undo_redo,
+				app,
+				win_idx,
+				1,
+			)
+			set_frames(app, win_idx, 1)
+			we_state.num_frames = 1
 			NumState :: enum {
 				None,
 				Negative,
@@ -1755,13 +1761,6 @@ f_import_export_text :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userda
 			num_state: NumState = .None
 			i := 0
 			begin_i, num_i: int
-			undo_redo_manager_undo_add_stop(&we_state.undo_redo)
-			undo_redo_manager_undo_data_frame(
-				&we_state.undo_redo,
-				app,
-				win_idx,
-				we_state.data_frame,
-			)
 			for app.state.import_buf[i] != 0 {
 				this_ch := app.state.import_buf[i]
 				switch num_state {
@@ -1804,29 +1803,37 @@ f_import_export_text :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userda
 				we_state.num_points,
 			)
 			we_state.num_points = i32(num_i)
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_idx, we_state.data_frame)
 			harmonics_update_model(app, win_idx)
 		} else {
 			process: bool = true
-			check_points: for i in 0 ..< we_state.num_points {
-				class_f := math.classify(we_state.data[data_index(we_state.data_frame, u32(i))])
-				#partial switch class_f {
-				case .Inf, .Neg_Inf, .NaN:
-					process = false
-					break check_points
+			check_points: for f in 0 ..< we_state.num_frames {
+				for s in 0 ..< we_state.num_points {
+					class_f := math.classify(we_state.data[data_index(f, u32(s))])
+					#partial switch class_f {
+					case .Inf, .Neg_Inf, .NaN:
+						process = false
+						break check_points
+					}
 				}
 			}
 			if process {
 				delete(app.state.import_buf)
 				sb := strings.builder_make()
-				for i in 0 ..< we_state.num_points {
-					int_f := new_range_f32(
-						we_state.data[data_index(we_state.data_frame, u32(i))],
-						{-1, 1},
-						{f32(import_min), f32(import_max)},
-					)
-					int_x := int(math.round(int_f))
-					strings.write_int(&sb, int_x)
-					if i != we_state.num_points - 1 {
+				for f in 0 ..< we_state.num_frames {
+					for i in 0 ..< we_state.num_points {
+						int_f := new_range_f32(
+							we_state.data[data_index(f, u32(i))],
+							{-1, 1},
+							{f32(import_min), f32(import_max)},
+						)
+						int_x := int(math.round(int_f))
+						strings.write_int(&sb, int_x)
+						if i != we_state.num_points - 1 {
+							strings.write_bytes(&sb, import_sep[:len(import_sep) - 1])
+						}
+					}
+					if f != we_state.num_frames - 1 {
 						strings.write_bytes(&sb, import_sep[:len(import_sep) - 1])
 					}
 				}
@@ -1836,7 +1843,7 @@ f_import_export_text :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userda
 				tooltip_change(
 					&app.state.tooltip,
 					cstring(
-						"Unable to process all samples. Some values contain Infinity or NaN values",
+						"Unable to process all frames. Some frames contain Infinity or NaN values",
 					),
 					.Error,
 					app.state.frames + 3000 / u64(app.config.mspf),
@@ -1881,6 +1888,9 @@ f_import_export_text :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userda
 	}
 	if imgui.IsItemHovered() {
 		imgui.SetTooltip("Ctrl+LMB to manually type value, [-32768, 32767] allowed")
+	}
+	if ie_text == .Import {
+		imgui.SliderInt("Samples Per Frame", &import_samples, 1, MAX_WAVEFORM_EDITOR_POINTS)
 	}
 	if ie_text == .Export {
 		imgui.SetNextItemWidth(100)
