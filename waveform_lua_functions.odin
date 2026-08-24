@@ -205,6 +205,7 @@ LuaCustomFunction :: struct {
 	desc:          cstring,
 }
 
+
 //odinfmt: disable
 lua_math_functions :: [?]LuaCustomFunction{
     {ptr = proc "c" (L: ^lua.State) -> c.int {
@@ -439,12 +440,13 @@ _lua_waveform_check_clamp_or_error :: proc "contextless" (
 	if num < cmin || num > cmax {
 		lua.L_error(
 			L,
-			"For argument #%d, Number must be set between [%d, %d]" when intrinsics.type_is_integer(
+			"For argument #%d, Number must be set between [%d, %d] (Current value %d)" when intrinsics.type_is_integer(
 				T,
-			) else "For argument #%d, Number must be set between [%f, %f]",
+			) else "For argument #%d, Number must be set between [%f, %f] (Current value %f)",
 			arg_i,
 			cmin,
 			cmax,
+			num,
 		)
 	}
 }
@@ -457,12 +459,19 @@ _lua_check_frame :: proc "contextless" (
 ) {
 	num_frames := app.state.we[win_i].num_frames
 	if frame < 0 || frame >= num_frames {
-		lua.L_error(L, "For argument #%d, Frame must be set between [0,%d]", arg_i, num_frames - 1)
+		lua.L_error(
+			L,
+			"For argument #%d, Frame must be set between [0,%d] (Current value %d)",
+			arg_i,
+			num_frames - 1,
+			frame,
+		)
 	}
 }
 
 
 W_AND_F_PARAMETER :: "\nf is frame index and w is window index.\nNot using f or w uses the current frame or window."
+
 
 
 //odinfmt: disable
@@ -768,13 +777,7 @@ lua_print :: proc "c" (L: ^lua.State) -> c.int {
 		if i < n do fmt.sbprint(&sb, " ")
 	}
 	str_output := strings.to_string(sb)
-	output_log_print(
-		&app.state.output_log,
-		.Info,
-		"script.lua",
-		"%s",
-		str_output,
-	)
+	output_log_print(&app.state.output_log, .Info, "script.lua", "%s", str_output)
 	fmt.println(str_output)
 	return 0
 }
@@ -979,6 +982,7 @@ LUA_APPLY_PRESET_DESC ::
 	"f(i:int), f(i:int, f:int), or f(i:int, w:int, f:int)\nChanges all samples in a frame to preset waveforms, where the preset names are in the table preset and contains the i value.\nUse 'print(presets)' to check the values." +
 	W_AND_F_PARAMETER
 LUA_HARMONICS_USE_APPLY :: "\nharmonics.apply is required to be called to apply the harmonics values."
+
 
 //odinfmt: disable
 lua_harmonics_functions :: [?]LuaCustomFunction{
