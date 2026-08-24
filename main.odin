@@ -131,11 +131,12 @@ ToolTip :: struct {
 }
 
 tooltip_change :: proc(
-	tt: ^ToolTip,
+	app: ^App,
 	container: ToolTipContainer,
 	type: ToolTipType,
 	expire_frames: Maybe(u64) = nil,
 ) {
+	tt := &app.state.tooltip
 	tt.until_frame, tt.expires = expire_frames.?
 	tt.type = type
 	#partial switch &c in tt.container {
@@ -145,9 +146,21 @@ tooltip_change :: proc(
 	tt.container = container
 	switch v in container {
 	case cstring:
-		log.log(.Info if type == .Info else .Error, v)
+		output_log_print(
+			&app.state.output_log,
+			.Info if type == .Info else .Error,
+			"Tooltip",
+			"%s",
+			v,
+		)
 	case strings.Builder:
-		log.log(.Info if type == .Info else .Error, transmute(string)(v.buf[:]))
+		output_log_print(
+			&app.state.output_log,
+			.Info if type == .Info else .Error,
+			"Tooltip",
+			"%s",
+			transmute(string)(v.buf[:]),
+		)
 	}
 }
 
@@ -185,7 +198,7 @@ App :: struct {
 app_reset_windows :: proc(app: ^App) {
 	app.state.rw_state = .Active
 	tooltip_change(
-		&app.state.tooltip,
+		app,
 		cstring("All windows size and positions are resetted"),
 		.Info,
 		app.state.frames + 3000 / u64(app.config.mspf),
@@ -196,7 +209,7 @@ app_lock_windows :: proc(app: ^App) {
 	case .ActiveAlways:
 		app.state.rw_state = .Inactive
 		tooltip_change(
-			&app.state.tooltip,
+			app,
 			cstring("All windows size and positions are now unlocked"),
 			.Info,
 			app.state.frames + 3000 / u64(app.config.mspf),
@@ -204,7 +217,7 @@ app_lock_windows :: proc(app: ^App) {
 	case .Inactive, .Active:
 		app.state.rw_state = .ActiveAlways
 		tooltip_change(
-			&app.state.tooltip,
+			app,
 			cstring("All windows size and positions are now resetted and locked"),
 			.Info,
 			app.state.frames + 3000 / u64(app.config.mspf),
@@ -450,7 +463,7 @@ main :: proc() {
 						refresh_dir_or_root(&app)
 					} else {
 						tooltip_change(
-							&app.state.tooltip,
+							&app,
 							cstring("File Explorer window already in use"),
 							.Error,
 							app.state.frames + 3000 / u64(app.config.mspf),

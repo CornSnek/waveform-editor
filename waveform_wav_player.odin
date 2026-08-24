@@ -823,7 +823,7 @@ _wav_player_keybinds :: proc(base: ^ImGuiWindow, app: ^App, win_tl, content_size
 		fmt.sbprintf(&sb, "{} samples", SAMPLE_RATE)
 		strings.write_byte(&sb, 0)
 		tooltip_change(
-			&app.state.tooltip,
+			app,
 			sb,
 			.Info,
 			app.state.frames + 2000 / u64(app.config.mspf),
@@ -844,7 +844,7 @@ _wav_player_keybinds :: proc(base: ^ImGuiWindow, app: ^App, win_tl, content_size
 			fmt.sbprintf(&sb, "%.f samples", we_wav_state.scale * SAMPLE_RATE)
 			strings.write_byte(&sb, 0)
 			tooltip_change(
-				&app.state.tooltip,
+				app,
 				sb,
 				.Info,
 				app.state.frames + 2000 / u64(app.config.mspf),
@@ -866,7 +866,7 @@ _wav_player_keybinds :: proc(base: ^ImGuiWindow, app: ^App, win_tl, content_size
 			fmt.sbprintf(&sb, "%.f samples", we_wav_state.scale * SAMPLE_RATE)
 			strings.write_byte(&sb, 0)
 			tooltip_change(
-				&app.state.tooltip,
+				app,
 				sb,
 				.Info,
 				app.state.frames + 2000 / u64(app.config.mspf),

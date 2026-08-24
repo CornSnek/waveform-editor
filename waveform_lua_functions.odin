@@ -694,7 +694,6 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		desc="f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)\nUses the Vertical Offset Effect with threshold x." + W_AND_F_PARAMETER,
 	},
 }//odinfmt: enable
-_lua_print_is_warn: bool
 lua_print :: proc "c" (L: ^lua.State) -> c.int {
 	context = app_context
 	app := lua_get_app(L)
@@ -713,11 +712,7 @@ lua_print :: proc "c" (L: ^lua.State) -> c.int {
 		case .NUMBER:
 			fmt.sbprint(&sb, lua.tonumber(L, i))
 		case .STRING:
-			if !_lua_print_is_warn {
-				fmt.sbprint(&sb, "\"", lua.tostring(L, i), "\"", sep = "")
-			} else {
-				fmt.sbprint(&sb, lua.tostring(L, i))
-			}
+			fmt.sbprint(&sb, lua.tostring(L, i))
 		case .TABLE:
 			fmt.sbprint(&sb, "lua.table{")
 			lua.pushnil(L)
@@ -775,13 +770,12 @@ lua_print :: proc "c" (L: ^lua.State) -> c.int {
 	str_output := strings.to_string(sb)
 	output_log_print(
 		&app.state.output_log,
-		.Warn if _lua_print_is_warn else .Info,
+		.Info,
 		"script.lua",
 		"%s",
 		str_output,
 	)
 	fmt.println(str_output)
-	_lua_print_is_warn = false
 	return 0
 }
 

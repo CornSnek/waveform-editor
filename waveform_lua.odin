@@ -75,7 +75,7 @@ f_we_lua_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: raw
 					refresh_dir_or_root(app)
 				} else {
 					tooltip_change(
-						&app.state.tooltip,
+						app,
 						cstring("File Explorer window already in use"),
 						.Error,
 						app.state.frames + 3000 / u64(app.config.mspf),
@@ -90,7 +90,7 @@ f_we_lua_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: raw
 					refresh_dir_or_root(app)
 				} else {
 					tooltip_change(
-						&app.state.tooltip,
+						app,
 						cstring("File Explorer window already in use"),
 						.Error,
 						app.state.frames + 3000 / u64(app.config.mspf),
@@ -266,8 +266,7 @@ lua_do_traceback :: proc "c" (L: ^lua.State) -> c.int {
 lua_warn_f :: proc "c" (userdata: rawptr, msg: rawptr, tocont: c.int) {
 	app := cast(^App)userdata
 	context = app_context
-	assert(tocont == 0 || tocont == 1)
-	L := app.state.we_luas[app.state.lua_win_idx].L
+	assert(tocont == 0 || tocont == 1) //Not sure what causes values not 0 or 1
 	if app.state.warn_buf != nil {
 		if tocont == 1 {
 			append(&app.state.warn_buf, ' ')
@@ -276,10 +275,9 @@ lua_warn_f :: proc "c" (userdata: rawptr, msg: rawptr, tocont: c.int) {
 			append(&app.state.warn_buf, ' ')
 			append(&app.state.warn_buf, string(cstring(msg)))
 			append(&app.state.warn_buf, "\x00")
-			_lua_print_is_warn = true
-			lua.pushcfunction(L, lua_print)
-			lua.pushstring(L, cstring(&app.state.warn_buf[0]))
-			lua.call(L, 1, 0)
+			cstr := cstring(&app.state.warn_buf[0])
+			output_log_print(&app.state.output_log, .Warn, "script.lua", "%s", cstr)
+			fmt.printfln("Lua warning: {}", cstr)
 			delete(app.state.warn_buf)
 			app.state.warn_buf = nil
 		}
@@ -288,10 +286,9 @@ lua_warn_f :: proc "c" (userdata: rawptr, msg: rawptr, tocont: c.int) {
 		append(&app.state.warn_buf, string(cstring(msg)))
 		if tocont == 0 {
 			append(&app.state.warn_buf, "\x00")
-			_lua_print_is_warn = true
-			lua.pushcfunction(L, lua_print)
-			lua.pushstring(L, cstring(&app.state.warn_buf[0]))
-			lua.call(L, 1, 0)
+			cstr := cstring(&app.state.warn_buf[0])
+			output_log_print(&app.state.output_log, .Warn, "script.lua", "%s", cstr)
+			fmt.printfln("Lua warning: {}", cstr)
 			delete(app.state.warn_buf)
 			app.state.warn_buf = nil
 		}

@@ -143,7 +143,7 @@ waveform_editor_new :: proc(app: ^App) -> (int, bool) {
 		return _win_idx, true
 	} else {
 		tooltip_change(
-			&app.state.tooltip,
+			app,
 			cstring("Unable to create more windows (Max limit)"),
 			.Error,
 			app.state.frames + 3000 / u64(app.config.mspf),
@@ -756,7 +756,7 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 						refresh_dir_or_root(app)
 					} else {
 						tooltip_change(
-							&app.state.tooltip,
+							app,
 							cstring("File Explorer window already in use"),
 							.Error,
 							app.state.frames + 3000 / u64(app.config.mspf),
@@ -771,7 +771,7 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 						refresh_dir_or_root(app)
 					} else {
 						tooltip_change(
-							&app.state.tooltip,
+							app,
 							cstring("File Explorer window already in use"),
 							.Error,
 							app.state.frames + 3000 / u64(app.config.mspf),
@@ -786,7 +786,7 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 						create_import_export_window(base, app, win_idx, .Export)
 					} else {
 						tooltip_change(
-							&app.state.tooltip,
+							app,
 							cstring(
 								"Unable to save: Frames contain samples that are not between [-1,1] or NaN values",
 							),
@@ -804,7 +804,7 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 							refresh_dir_or_root(app)
 						} else {
 							tooltip_change(
-								&app.state.tooltip,
+								app,
 								cstring(
 									"Unable to save: Frames contain samples that are not between [-1,1] or NaN values",
 								),
@@ -814,7 +814,7 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 						}
 					} else {
 						tooltip_change(
-							&app.state.tooltip,
+							app,
 							cstring("File Explorer window already in use"),
 							.Error,
 							app.state.frames + 3000 / u64(app.config.mspf),
@@ -830,7 +830,7 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 							refresh_dir_or_root(app)
 						} else {
 							tooltip_change(
-								&app.state.tooltip,
+								app,
 								cstring(
 									"Unable to save: Frames contain samples that are not between [-1,1] or NaN values",
 								),
@@ -840,7 +840,7 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 						}
 					} else {
 						tooltip_change(
-							&app.state.tooltip,
+							app,
 							cstring("File Explorer window already in use"),
 							.Error,
 							app.state.frames + 3000 / u64(app.config.mspf),
@@ -1085,7 +1085,7 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 					sync.mutex_unlock(&wp_mutex)
 				} else {
 					tooltip_change(
-						&app.state.tooltip,
+						app,
 						cstring(
 							"Invalid String\nMust be the format (Key)(Accidental?)(Octave)\nAccidentals should be +/#/-/b\nOctave from 0 to 9",
 						),
@@ -1486,7 +1486,7 @@ _we_keybinds :: proc(
 		strings.write_string(&sb, "Enabled" if is_drawing else "Disabled")
 		strings.write_byte(&sb, 0)
 		tooltip_change(
-			&app.state.tooltip,
+			app,
 			sb,
 			.Info,
 			app.state.frames + 2000 / u64(app.config.mspf),
@@ -1510,7 +1510,7 @@ _we_keybinds :: proc(
 		strings.write_string(&sb, "Enabled" if is_selecting else "Disabled")
 		strings.write_byte(&sb, 0)
 		tooltip_change(
-			&app.state.tooltip,
+			app,
 			sb,
 			.Info,
 			app.state.frames + 2000 / u64(app.config.mspf),
@@ -1570,7 +1570,7 @@ _we_keybinds :: proc(
 			strings.write_string(&sb, "Activated" if we_state.play else "Deactivated")
 			strings.write_byte(&sb, 0)
 			tooltip_change(
-				&app.state.tooltip,
+				app,
 				sb,
 				.Info,
 				app.state.frames + 2000 / u64(app.config.mspf),
@@ -1699,7 +1699,7 @@ _we_keybinds :: proc(
 			strings.write_string(&sb, string(cstring(&we_state.amp_buf[0])))
 			strings.write_byte(&sb, 0)
 			tooltip_change(
-				&app.state.tooltip,
+				app,
 				sb,
 				.Info,
 				app.state.frames + 3000 / u64(app.config.mspf),
@@ -1731,7 +1731,7 @@ _we_keybinds :: proc(
 			)
 			strings.write_byte(&sb, 0)
 			tooltip_change(
-				&app.state.tooltip,
+				app,
 				sb,
 				.Info,
 				app.state.frames + 2000 / u64(app.config.mspf),
@@ -1803,7 +1803,7 @@ create_import_export_window :: proc(
 		we_base.depends_on = h
 	} else {
 		tooltip_change(
-			&app.state.tooltip,
+			app,
 			cstring("Window already in use by a different window"),
 			.Error,
 			app.state.frames + 3000 / u64(app.config.mspf),

@@ -345,7 +345,7 @@ f_file_explorer_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userda
 				#partial switch file_explorer_type {
 				case .LoadFromAudioFolder, .SaveToAudioFolder:
 					tooltip_change(
-						&app.state.tooltip,
+						app,
 						cstring("Please choose a directory to load/save the .wav files"),
 						.Error,
 						app.state.frames + 3000 / u64(app.config.mspf),
@@ -445,7 +445,7 @@ f_file_explorer_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userda
 			confirm_edit_path()
 		} else {
 			tooltip_change(
-				&app.state.tooltip,
+				app,
 				cstring("Invalid directory"),
 				.Error,
 				app.state.frames + 3000 / u64(app.config.mspf),
@@ -548,7 +548,7 @@ f_file_explorer_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userda
 						case .LoadLuaScript, .SaveLuaScript:
 						case .LoadFromAudioFolder, .SaveToAudioFolder:
 							tooltip_change(
-								&app.state.tooltip,
+								app,
 								cstring("Please choose a directory to load/save the .wav files"),
 								.Error,
 								app.state.frames + 3000 / u64(app.config.mspf),
