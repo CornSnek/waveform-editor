@@ -40,7 +40,7 @@ lua_register_functions :: proc(L: ^lua.State) {
 		n:        lua.Number,
 		lua_name: cstring,
 	} {
-		{math.E, "e"}, //TODO desc
+		{math.E, "e"},
 		{math.PI, "pi"},
 		{math.TAU, "tau"},
 		{math.F64_EPSILON, "epsilon"},

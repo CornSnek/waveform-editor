@@ -369,14 +369,17 @@ f_wav_player_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata:
 				window := &app.windows.waveform_editors[_win_idx]
 				if window.is_active {
 					we_state := &app.state.we[_win_idx]
-					sb := &base.id.(strings.Builder)
+					sb := &window.id.(strings.Builder)
 					no_create: if imgui.MenuItem(cstring(&sb.buf[0])) {
-						atomic_store_rel(
-							&we_wav_state.thread_state.status,
-							WavPlayerPlayStatus.PrePause,
-						)
-						for atomic_load_acq(&we_wav_state.thread_state.status) !=
-						    WavPlayerPlayStatus.Pause {
+						if atomic_load_acq(&we_wav_state.thread_state.status) !=
+						   WavPlayerPlayStatus.Pause { //Because sync.Cond in .Pause
+							atomic_store_rel(
+								&we_wav_state.thread_state.status,
+								WavPlayerPlayStatus.PrePause,
+							)
+							for atomic_load_acq(&we_wav_state.thread_state.status) !=
+							    WavPlayerPlayStatus.Pause {
+							}
 						}
 						sync.mutex_guard(&we_wav_state.thread_state.mutex)
 						undo_redo_manager_undo_add_stop(&we_state.undo_redo)
