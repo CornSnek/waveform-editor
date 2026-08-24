@@ -143,6 +143,12 @@ tooltip_change :: proc(
 		strings.builder_destroy(&c)
 	}
 	tt.container = container
+	switch v in container {
+	case cstring:
+		log.log(.Info if type == .Info else .Error, v)
+	case strings.Builder:
+		log.log(.Info if type == .Info else .Error, transmute(string)(v.buf[:]))
+	}
 }
 
 ImGuiWindows :: struct {
@@ -152,6 +158,7 @@ ImGuiWindows :: struct {
 	oscilloscope:     ImGuiWindow,
 	output_log:       ImGuiWindow,
 	import_text:      ImGuiWindow,
+	lua_help:         ImGuiWindow,
 	waveform_editors: [MAX_WAVEFORM_EDITOR_WINDOWS]ImGuiWindow,
 	lua:              [MAX_WAVEFORM_EDITOR_WINDOWS]ImGuiWindow,
 	harmonics:        [MAX_WAVEFORM_EDITOR_WINDOWS]ImGuiWindow,
@@ -206,6 +213,10 @@ app_lock_windows :: proc(app: ^App) {
 }
 
 app_destroy :: proc(app: ^App) {
+	if lua_desc_map != nil {
+		delete(lua_desc_map)
+		delete(lua_desc_keys)
+	}
 	output_log_destroy(&app.state.output_log)
 	file_explorer_save_lua_overwrite_destroy(&app.state.we_overwrite_lua)
 	for tn in TextureNames {
@@ -681,7 +692,10 @@ main :: proc() {
 			if imgui.Begin("Overwrite", nil, {.NoResize, .AlwaysAutoResize}) {
 				feams := &app.state.fe_audiomulti_state
 				defer imgui.End()
-				imgui.Text("Overwrite .wav files in '%s'?", feams.file_dir)
+				imgui.Text(
+					"Overwrite .wav files in '%s'? They will overwrite 000.wav to 256.wav files only.",
+					feams.file_dir,
+				)
 				if imgui.Button("Yes") {
 					we_state := &app.state.we[file_explorer_load_idx]
 					for i in 0 ..< we_state.num_frames {

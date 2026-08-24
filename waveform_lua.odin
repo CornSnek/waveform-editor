@@ -7,12 +7,15 @@ import "core:container/handle_map"
 import "core:container/queue"
 import "core:fmt"
 import "core:log"
+import "core:sort"
 import "core:strings"
 
 import imgui "imgui:/"
 import lua "vendor:lua/5.4"
 
-
+LuaCustomDescMap :: map[cstring]cstring //As map[lua_full_path]desc
+lua_desc_map: LuaCustomDescMap
+lua_desc_keys: [dynamic]cstring
 WELuaState :: struct {
 	text_buf: [dynamic]u8,
 	L:        ^lua.State,
@@ -36,8 +39,8 @@ lua_window_new :: proc(we_base: ^ImGuiWindow, app: ^App, win_idx: int) {
 		app.windows.lua[win_idx] = imgui_window_new(
 			id_sb,
 			win_idx,
-			{{we_base.size.x.s/2, 0}, {we_base.position.y.s + we_base.size.y.s, 0}},
-			{{we_base.size.x.s/2, 0}, {we_base.size.y.s, 0}},
+			{{we_base.size.x.s / 2, 0}, {we_base.position.y.s + we_base.size.y.s, 0}},
+			{{we_base.size.x.s / 2, 0}, {we_base.size.y.s, 0}},
 			{.MenuBar, .HorizontalScrollbar},
 			container_f = f_we_lua_draw,
 			destroy_f = f_we_lua_destroy,
@@ -122,6 +125,51 @@ f_we_lua_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: raw
 			defer imgui.EndMenu()
 			if imgui.MenuItem("Show Output Log", selected = app.windows.output_log.show) {
 				app.windows.output_log.show = !app.windows.output_log.show
+			}
+		}
+		if imgui.BeginMenu("Help") {
+			defer imgui.EndMenu()
+			if imgui.MenuItem("API") {
+				if lua_desc_map == nil {
+					lua_desc_map = make(LuaCustomDescMap)
+					lua_desc_map["window"] = LUA_WINDOW_DESC
+					for lmf in lua_math_functions {
+						lua_desc_map[lmf.lua_full_path] = lmf.desc
+					}
+					for lwe in lua_waveform_effects {
+						lua_desc_map[lwe.lua_full_path] = lwe.desc
+					}
+					for ldf in lua_data_functions {
+						lua_desc_map[ldf.lua_full_path] = ldf.desc
+					}
+					lua_desc_map["presets"] = LUA_APPLY_PRESET_DESC
+					for lhf in lua_harmonics_functions {
+						lua_desc_map[lhf.lua_full_path] = lhf.desc
+					}
+					lua_desc_map["map"] = LUA_MAP_DESC
+					lua_desc_map["wemath.e"] = "2.71828182845904523536"
+					lua_desc_map["wemath.pi"] = "3.14159265358979323846264338327950288"
+					lua_desc_map["wemath.tau"] = "6.28318530717958647692528676655900576"
+					lua_desc_map["wemath.epsilon"] = "Epsilon (64-bit) = 2.2204460492503131e-016"
+					lua_desc_map["wemath.inf"] = "Positive Infinity (64-bit)"
+					lua_desc_keys = make([dynamic]cstring)
+					for k, v in lua_desc_map {
+						append(&lua_desc_keys, k)
+					}
+					sort.merge_sort(lua_desc_keys[:])
+				}
+				if !app.windows.lua_help.is_active {
+					app.windows.lua_help = imgui_window_new(
+						"Lua API",
+						win_idx,
+						position = {{}, UDim{o = 20}},
+						size = {UDim{s = 0.5}, UDim{o = -20, s = 0.5}},
+						container_f = f_lua_help_draw,
+						destroy_f = f_lua_help_destroy,
+					)
+					imgui_window_add_handle(app, &app.windows.lua_help)
+					harmonics_update_model(app, win_idx)
+				} else do app.windows.lua_help.show = false
 			}
 		}
 	}
@@ -254,5 +302,27 @@ f_we_lua_destroy :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: 
 	we_lua_state_destroy(&app.state.we_luas[win_idx])
 	handle_map.remove(&app.imgui_hm, base.handle)
 	strings.builder_destroy(&base.id.(strings.Builder))
+	base.is_active = false
+}
+
+f_lua_help_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
+	imgui.TextWrapped("This table describes the custom lua fields defined for this script.")
+	imgui.TextLinkOpenURL("Lua version is 5.4", "https://www.lua.org/manual/5.4/")
+	imgui.BeginTable("##Table", 2, imgui.TableFlags_SizingFixedFit | imgui.TableFlags_Borders)
+	imgui.TableSetupColumn("Lua Key", {.WidthStretch}, 1)
+	imgui.TableSetupColumn("Description", {.WidthStretch}, 3)
+	imgui.TableHeadersRow()
+	for k in lua_desc_keys {
+		imgui.TableNextRow()
+		imgui.TableNextColumn()
+		imgui.TextWrapped(k)
+		imgui.TableNextColumn()
+		imgui.TextWrapped(lua_desc_map[k])
+	}
+	imgui.EndTable()
+}
+
+f_lua_help_destroy :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
+	handle_map.remove(&app.imgui_hm, base.handle)
 	base.is_active = false
 }

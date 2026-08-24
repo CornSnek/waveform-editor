@@ -109,6 +109,22 @@ EffectClampFloat :: struct {
 	max: f32,
 }
 
+effect_nan_to_0_full :: proc(app: ^App, win_idx: int, add_stop: bool = true) {
+	we_state := &app.state.we[win_idx]
+	if add_stop do undo_redo_manager_undo_add_stop(&we_state.undo_redo)
+	undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_idx, we_state.data_frame)
+	for f in 0 ..< we_state.num_frames {
+		for i in 0 ..< we_state.num_points {
+			data_f := we_state.data[data_index(f, u32(i))]
+			if data_f != data_f {
+				undo_redo_manager_undo_wedraw(&we_state.undo_redo, app, win_idx, i, f)
+				we_state.data[data_index(f, u32(i))] = 0
+			}
+		}
+	}
+	if add_stop do harmonics_update_model(app, win_idx)
+}
+
 effect_gain_clamp :: EffectClampFloat{-math.INF_F32, math.INF_F32}
 effect_gain :: proc(app: ^App, win_idx: int) {
 	we_state := &app.state.we[win_idx]

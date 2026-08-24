@@ -471,7 +471,11 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 						)
 						app.state.wedraw_idx_buf = make([dynamic]i32)
 					}
-					get_x := i32(image_mouse_pos.x / bar_width_unsized)
+					get_x := clamp(
+						i32(image_mouse_pos.x / bar_width_unsized),
+						0,
+						we_state.num_points - 1,
+					)
 					y_ratio := (1 - clamp(lgp.mouse_pos.y / line_graph_size.y, 0, 1))
 					y_m1_to_1 := 2 * y_ratio - 1
 					sync.mutex_lock(&wp_mutex)
@@ -509,7 +513,11 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 					}
 					harmonics_update_model(app, win_idx)
 				case .SelectIdle:
-					get_x := i16(image_mouse_pos.x / bar_width_unsized)
+					get_x := clamp(
+						i16(image_mouse_pos.x / bar_width_unsized),
+						0,
+						i16(we_state.num_points - 1),
+					)
 					select_v := &we_state.edit_state.v.select
 					if edit_select_is_none(select_v^) {
 						select_v^ = {
@@ -543,13 +551,21 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 					}
 				case .SelectInit:
 					custom_cursor(app, .LeftRight, {20, 10}, {-10, 0})
-					get_x := i16(image_mouse_pos.x / bar_width_unsized)
+					get_x := clamp(
+						i16(image_mouse_pos.x / bar_width_unsized),
+						0,
+						i16(we_state.num_points - 1),
+					)
 					select_v := &we_state.edit_state.v.select
 					select_v.begin = clamp(get_x, 0, select_v.dt)
 					select_v.end = clamp(get_x + 1, select_v.dt + 1, i16(we_state.num_points))
 				case .SelectMove:
 					custom_cursor(app, .LeftRight, {20, 10}, {-10, 0})
-					get_x := i16(image_mouse_pos.x / bar_width_unsized)
+					get_x := clamp(
+						i16(image_mouse_pos.x / bar_width_unsized),
+						0,
+						i16(we_state.num_points - 1),
+					)
 					select_v := &we_state.edit_state.v.select
 					new_begin := i32(get_x - select_v.dt)
 					old_dt := i32(select_v.end - select_v.begin)
@@ -565,14 +581,22 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 					select_v.end = i16(new_end)
 				case .SelectLeft:
 					custom_cursor(app, .Left, {10, 10}, {0, 0})
-					get_x := i16(image_mouse_pos.x / bar_width_unsized)
+					get_x := clamp(
+						i16(image_mouse_pos.x / bar_width_unsized),
+						0,
+						i16(we_state.num_points - 1),
+					)
 					we_state.edit_state.v.select.begin = min(
 						get_x,
 						we_state.edit_state.v.select.end - 1,
 					)
 				case .SelectRight:
 					custom_cursor(app, .Right, {10, 10}, {0, 0})
-					get_x := i16(image_mouse_pos.x / bar_width_unsized) + 1
+					get_x := clamp(
+						i16(image_mouse_pos.x / bar_width_unsized) + 1,
+						0,
+						i16(we_state.num_points - 1),
+					)
 					we_state.edit_state.v.select.end = max(
 						get_x,
 						we_state.edit_state.v.select.begin + 1,
@@ -613,7 +637,11 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 		} else {
 			if we_state.edit_state.type == .None {
 				if imgui.IsMouseClicked(.Left, false) {
-					get_x := i16(image_mouse_pos.x / bar_width_unsized)
+					get_x := clamp(
+						i16(image_mouse_pos.x / bar_width_unsized),
+						0,
+						i16(we_state.num_points - 1),
+					)
 					mouse_c := imgui.GetMousePos()
 					app.state.we_edit_s = WeEditSample {
 						status  = .ExistsFocus,
@@ -670,15 +698,15 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 			imgui.SetScrollX(imgui.GetScrollX() - bar_width_unsized * we_state.scale)
 		}
 		if imgui.BeginTooltip() {
-			get_x := i32(image_mouse_pos.x / bar_width_unsized)
+			get_x := clamp(i32(image_mouse_pos.x / bar_width_unsized), 0, we_state.num_points - 1)
 			y_value := we_state.data[data_index(we_state.data_frame, u32(get_x))]
 			imgui.Text("f(%u) = %.10f", get_x, y_value)
 			#partial switch math.classify(y_value) {
 			case .Inf, .Neg_Inf, .NaN:
-				imgui.Text("Warning! Infinite or NaN Values will be set to -1/1 or 0")
+				imgui.Text("Warning! Infinite or NaN Values detected")
 			}
 			if math.abs(y_value) > 1 {
-				imgui.Text("Warning! Value will be clipped to -1 or 1")
+				imgui.Text("Warning! Value must be clamped to [-1, 1]")
 			}
 			imgui.EndTooltip()
 		}
@@ -754,14 +782,36 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 			if imgui.BeginMenu("Export As...") {
 				defer imgui.EndMenu()
 				if imgui.MenuItem("Text") {
-					create_import_export_window(base, app, win_idx, .Export)
+					if export_check_all_samples_valid(base, app, win_idx) {
+						create_import_export_window(base, app, win_idx, .Export)
+					} else {
+						tooltip_change(
+							&app.state.tooltip,
+							cstring(
+								"Unable to save: Frames contain samples that are not between [-1,1] or NaN values",
+							),
+							.Error,
+							app.state.frames + 3000 / u64(app.config.mspf),
+						)
+					}
 				}
 				if imgui.MenuItem(".wav file") {
 					if !app.windows.file_explorer.is_active {
-						file_explorer_load_idx = win_idx
-						fe_h := file_explorer_new(app, .SaveToAudio)
-						base.depends_on = fe_h
-						refresh_dir_or_root(app)
+						if export_check_all_samples_valid(base, app, win_idx) {
+							file_explorer_load_idx = win_idx
+							fe_h := file_explorer_new(app, .SaveToAudio)
+							base.depends_on = fe_h
+							refresh_dir_or_root(app)
+						} else {
+							tooltip_change(
+								&app.state.tooltip,
+								cstring(
+									"Unable to save: Frames contain samples that are not between [-1,1] or NaN values",
+								),
+								.Error,
+								app.state.frames + 3000 / u64(app.config.mspf),
+							)
+						}
 					} else {
 						tooltip_change(
 							&app.state.tooltip,
@@ -773,10 +823,21 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 				}
 				if imgui.MenuItem("Directory") {
 					if !app.windows.file_explorer.is_active {
-						file_explorer_load_idx = win_idx
-						fe_h := file_explorer_new(app, .SaveToAudioFolder)
-						base.depends_on = fe_h
-						refresh_dir_or_root(app)
+						if export_check_all_samples_valid(base, app, win_idx) {
+							file_explorer_load_idx = win_idx
+							fe_h := file_explorer_new(app, .SaveToAudioFolder)
+							base.depends_on = fe_h
+							refresh_dir_or_root(app)
+						} else {
+							tooltip_change(
+								&app.state.tooltip,
+								cstring(
+									"Unable to save: Frames contain samples that are not between [-1,1] or NaN values",
+								),
+								.Error,
+								app.state.frames + 3000 / u64(app.config.mspf),
+							)
+						}
 					} else {
 						tooltip_change(
 							&app.state.tooltip,
@@ -1087,6 +1148,10 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 			if imgui.MenuItem("Reapply Last Effect", "Ctrl+Shift+E") {
 				we_state.last_effect_vf(app, win_idx)
 			}
+			help_marker("Sets each sample in each frame that has NaN values to 0")
+			if imgui.MenuItem("NaN to 0") {
+				effect_nan_to_0_full(app, win_idx)
+			}
 			help_marker("Multiply the samples proportionally by a factor of [0,inf]")
 			if imgui.BeginMenu("Gain") {
 				defer imgui.EndMenu()
@@ -1359,6 +1424,23 @@ f_waveform_editor_destroy :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, u
 			EventCall{window = lua_window, event_f = lua_window._destroy, win_idx = win_idx},
 		)
 	}
+}
+export_check_all_samples_valid :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int) -> bool {
+	we_state := &app.state.we[win_idx]
+	for f in 0 ..< we_state.num_frames {
+		for i in 0 ..< we_state.num_points {
+			data_f := we_state.data[data_index(f, u32(i))]
+			class_f := math.classify(data_f)
+			#partial switch class_f {
+			case .Inf, .Neg_Inf, .NaN:
+				return false
+			}
+			if math.abs(data_f) > 1 {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 reset_phases :: proc(app: ^App) {
@@ -1672,7 +1754,12 @@ _parse_to_data :: proc(
 		if we_state.data_frame == MAX_WAVEFORM_FRAMES - 1 {
 			return
 		}
-		undo_redo_manager_undo_setmaxframes(&we_state.undo_redo, app, win_idx, we_state.num_frames + 1)
+		undo_redo_manager_undo_setmaxframes(
+			&we_state.undo_redo,
+			app,
+			win_idx,
+			we_state.num_frames + 1,
+		)
 		set_frames(app, win_idx, we_state.num_frames + 1)
 		we_state.num_frames += 1
 		we_state.data_frame += 1
@@ -1745,12 +1832,7 @@ f_import_export_text :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userda
 			sync.mutex_lock(&wp_mutex)
 			we_state.num_points = import_samples
 			sync.mutex_unlock(&wp_mutex)
-			undo_redo_manager_undo_setmaxframes(
-				&we_state.undo_redo,
-				app,
-				win_idx,
-				1,
-			)
+			undo_redo_manager_undo_setmaxframes(&we_state.undo_redo, app, win_idx, 1)
 			set_frames(app, win_idx, 1)
 			we_state.num_frames = 1
 			NumState :: enum {
@@ -1803,52 +1885,35 @@ f_import_export_text :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userda
 				we_state.num_points,
 			)
 			we_state.num_points = i32(num_i)
-			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_idx, we_state.data_frame)
+			undo_redo_manager_undo_data_frame(
+				&we_state.undo_redo,
+				app,
+				win_idx,
+				we_state.data_frame,
+			)
 			harmonics_update_model(app, win_idx)
 		} else {
-			process: bool = true
-			check_points: for f in 0 ..< we_state.num_frames {
-				for s in 0 ..< we_state.num_points {
-					class_f := math.classify(we_state.data[data_index(f, u32(s))])
-					#partial switch class_f {
-					case .Inf, .Neg_Inf, .NaN:
-						process = false
-						break check_points
-					}
-				}
-			}
-			if process {
-				delete(app.state.import_buf)
-				sb := strings.builder_make()
-				for f in 0 ..< we_state.num_frames {
-					for i in 0 ..< we_state.num_points {
-						int_f := new_range_f32(
-							we_state.data[data_index(f, u32(i))],
-							{-1, 1},
-							{f32(import_min), f32(import_max)},
-						)
-						int_x := int(math.round(int_f))
-						strings.write_int(&sb, int_x)
-						if i != we_state.num_points - 1 {
-							strings.write_bytes(&sb, import_sep[:len(import_sep) - 1])
-						}
-					}
-					if f != we_state.num_frames - 1 {
+			delete(app.state.import_buf)
+			sb := strings.builder_make()
+			for f in 0 ..< we_state.num_frames {
+				for i in 0 ..< we_state.num_points {
+					int_f := new_range_f32(
+						we_state.data[data_index(f, u32(i))],
+						{-1, 1},
+						{f32(import_min), f32(import_max)},
+					)
+					int_x := int(math.round(int_f))
+					strings.write_int(&sb, int_x)
+					if i != we_state.num_points - 1 {
 						strings.write_bytes(&sb, import_sep[:len(import_sep) - 1])
 					}
 				}
-				strings.write_byte(&sb, 0)
-				app.state.import_buf = sb.buf //strings.Builder is a [dynamic]u8 type
-			} else {
-				tooltip_change(
-					&app.state.tooltip,
-					cstring(
-						"Unable to process all frames. Some frames contain Infinity or NaN values",
-					),
-					.Error,
-					app.state.frames + 3000 / u64(app.config.mspf),
-				)
+				if f != we_state.num_frames - 1 {
+					strings.write_bytes(&sb, import_sep[:len(import_sep) - 1])
+				}
 			}
+			strings.write_byte(&sb, 0)
+			app.state.import_buf = sb.buf //strings.Builder is a [dynamic]u8 type
 		}
 	}
 	imgui.SetNextItemWidth(-1)
