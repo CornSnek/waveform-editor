@@ -1269,11 +1269,11 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 				imgui.DragFloat(
 					"##SCThreshold",
 					&we_state.soft_clip_v,
+					1,
 					effect_soft_clip_clamp.min,
 					effect_soft_clip_clamp.max,
-					flags = {.Logarithmic},
+					flags = {.ClampOnInput},
 				)
-				we_state.soft_clip_v = max(we_state.soft_clip_v, 0)
 			}
 
 			help_marker(
@@ -1300,9 +1300,10 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 				imgui.DragFloat(
 					"A##WaveFolding",
 					&we_state.wavefold_v,
+					1,
 					effect_triangle_folding_clamp.min,
 					effect_triangle_folding_clamp.max,
-					flags = {.Logarithmic, .ClampOnInput},
+					flags = {.ClampOnInput},
 				)
 			}
 
@@ -1319,6 +1320,7 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 				imgui.DragFloat(
 					"n##WaveFolding",
 					&we_state.cheb_n_v,
+					1,
 					clamp.min,
 					clamp.max,
 					flags = {.ClampOnInput},
