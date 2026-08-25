@@ -71,17 +71,22 @@ EventCall :: struct {
 TOOLTIP_BUF_MAX_LEN :: 256
 MAX_WAVEFORM_EDITOR_POINTS :: 2048
 MAX_WAVEFORM_EDITOR_WINDOWS :: 4
-WeEditSampleStatus :: enum {
+//S When editing sample, A harmonics amplitude, and P harmonics phase
+WeEditValueStatus :: enum {
 	None,
-	ExistsFocus,
-	Exists,
+	SExistsFocus,
+	SExists,
+	AExistsFocus,
+	AExists,
+	PExistsFocus,
+	PExists,
 }
-WeEditSample :: struct {
+WeEditValue :: struct {
 	win_idx: i16,
 	idx:     i16,
 	x:       i16,
 	y:       i16,
-	status:  WeEditSampleStatus,
+	status:  WeEditValueStatus,
 }
 AppState :: struct {
 	events_f:            queue.Queue(EventCall),
@@ -90,7 +95,7 @@ AppState :: struct {
 	tick_acc:            u64,
 	last_tick:           u64,
 	lua_win_idx:         int,
-	we_edit_s:           WeEditSample,
+	we_edit_v:           WeEditValue,
 	output_log:          OutputLog,
 	we_edit_s_buf:       [dynamic]u8,
 	we_overwrite_lua:    FileExplorerSaveLuaOverwrite,
@@ -762,13 +767,62 @@ main :: proc() {
 			}
 		}
 
-		if app.state.we_edit_s.status != .None {
-			edit_s := &app.state.we_edit_s
-			if imgui.Begin("Edit Sample##WE", nil, {.NoMove, .NoResize, .NoCollapse}) {
+		if app.state.we_edit_v.status != .None {
+			edit_s := &app.state.we_edit_v
+			title_cstr: cstring = ""
+			switch edit_s.status {
+			case .None:
+				title_cstr = "##WE"
+			case .SExistsFocus, .SExists:
+				title_cstr = "Sample##WE"
+			case .AExistsFocus, .AExists:
+				title_cstr = "Amplitude##WE"
+			case .PExistsFocus, .PExists:
+				title_cstr = "Phase (Degrees)##WE"
+			}
+			if imgui.Begin(title_cstr, nil, {.NoMove, .NoResize, .NoCollapse}) {
+				#partial switch edit_s.status {
+				case .SExistsFocus, .AExistsFocus, .PExistsFocus:
+					imgui.SetKeyboardFocusHere()
+				}
 				imgui.SetWindowPos({f32(edit_s.x), f32(edit_s.y)})
-				imgui.SetWindowSize({140, 55})
-				we_state := &app.state.we[edit_s.win_idx]
-				if edit_s.status == .ExistsFocus do imgui.SetKeyboardFocusHere()
+				imgui.SetWindowSize({150, 55})
+
+				_we_do_edit :: proc(app: ^App) {
+					edit_s := &app.state.we_edit_v
+					we_state := &app.state.we[edit_s.win_idx]
+					f_value, _ := strconv.parse_f32(string(cstring(&app.state.we_edit_s_buf[0])))
+					#partial switch edit_s.status {
+					case .SExistsFocus, .SExists:
+						undo_redo_manager_undo_add_stop(&we_state.undo_redo)
+						undo_redo_manager_undo_data_frame(
+							&we_state.undo_redo,
+							app,
+							int(edit_s.win_idx),
+							we_state.data_frame,
+						)
+						undo_redo_manager_undo_wedraw(
+							&we_state.undo_redo,
+							app,
+							int(edit_s.win_idx),
+							i32(edit_s.idx),
+							we_state.data_frame,
+						)
+						we_state.data[data_index(we_state.data_frame, u32(edit_s.idx))] = clamp(
+							f_value,
+							-1,
+							1,
+						)
+					case .AExistsFocus, .AExists:
+						wfm := &app.state.we_h_wfs[edit_s.win_idx]
+						wfm.amp[edit_s.idx] = clamp(f_value, 0, 2)
+					case .PExistsFocus, .PExists:
+						wfm := &app.state.we_h_wfs[edit_s.win_idx]
+						wfm.phase[edit_s.idx] = clamp(math.to_radians(f_value), -360, 360)
+					}
+					edit_s.status = .None
+				}
+
 				if imgui.InputText(
 					"##Float Value",
 					cstring(&app.state.we_edit_s_buf[0]),
@@ -777,55 +831,22 @@ main :: proc() {
 					float_text_resize,
 					&app.state.we_edit_s_buf,
 				) {
-					f_value, _ := strconv.parse_f32(string(cstring(&app.state.we_edit_s_buf[0])))
-					undo_redo_manager_undo_add_stop(&we_state.undo_redo)
-					undo_redo_manager_undo_data_frame(
-						&we_state.undo_redo,
-						&app,
-						int(edit_s.win_idx),
-						we_state.data_frame,
-					)
-					undo_redo_manager_undo_wedraw(
-						&we_state.undo_redo,
-						&app,
-						int(edit_s.win_idx),
-						i32(edit_s.idx),
-						we_state.data_frame,
-					)
-					we_state.data[data_index(we_state.data_frame, u32(edit_s.idx))] = clamp(
-						f_value,
-						-1,
-						1,
-					)
-					edit_s.status = .None
+					_we_do_edit(&app)
 				}
 				if !imgui.IsWindowFocused() {
-					f_value, _ := strconv.parse_f32(string(cstring(&app.state.we_edit_s_buf[0])))
-					undo_redo_manager_undo_add_stop(&we_state.undo_redo)
-					undo_redo_manager_undo_data_frame(
-						&we_state.undo_redo,
-						&app,
-						int(edit_s.win_idx),
-						we_state.data_frame,
-					)
-					undo_redo_manager_undo_wedraw(
-						&we_state.undo_redo,
-						&app,
-						int(edit_s.win_idx),
-						i32(edit_s.idx),
-						we_state.data_frame,
-					)
-					we_state.data[data_index(we_state.data_frame, u32(edit_s.idx))] = clamp(
-						f_value,
-						-1,
-						1,
-					)
-					edit_s.status = .None
+					_we_do_edit(&app)
 				}
 				if imgui.IsKeyPressed(.Escape, false) {
 					edit_s.status = .None
 				}
-				if edit_s.status != .None do edit_s.status = .Exists
+				#partial switch edit_s.status {
+				case .SExistsFocus:
+					edit_s.status = .SExists
+				case .AExistsFocus:
+					edit_s.status = .AExists
+				case .PExistsFocus:
+					edit_s.status = .PExists
+				}
 				imgui.End()
 			}
 		}

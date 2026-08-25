@@ -391,7 +391,7 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 	if imgui.IsWindowFocused() {
 		_we_keybinds(base, app, we_state, win_idx, i32(image_mouse_pos.x / bar_width_unsized))
 		if imgui.IsMouseClicked(.Left) {
-			app.state.we_edit_s.status = .None
+			app.state.we_edit_v.status = .None
 		}
 	}
 	for i in 0 ..< we_state.num_points {
@@ -643,8 +643,8 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 						i16(we_state.num_points - 1),
 					)
 					mouse_c := imgui.GetMousePos()
-					app.state.we_edit_s = WeEditSample {
-						status  = .ExistsFocus,
+					app.state.we_edit_v = WeEditValue {
+						status  = .SExistsFocus,
 						win_idx = i16(win_idx),
 						idx     = get_x,
 						x       = i16(mouse_c.x),
@@ -1402,7 +1402,7 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 }
 
 f_waveform_editor_destroy :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawptr) {
-	app.state.we_edit_s.status = .None
+	app.state.we_edit_v.status = .None
 	we_state := &app.state.we[win_idx]
 	waveform_editor_destroy(we_state)
 	we_state.is_active = false

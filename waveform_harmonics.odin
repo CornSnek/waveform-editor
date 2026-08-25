@@ -6,8 +6,8 @@ import "core:fmt"
 import "core:math"
 import "core:strings"
 
-import imgui "imgui:/"
 import fm "./fourier_model"
+import imgui "imgui:/"
 
 harmonics_window_new :: proc(we_base: ^ImGuiWindow, app: ^App, win_idx: int) {
 	if !app.windows.harmonics[win_idx].is_active {
@@ -17,8 +17,8 @@ harmonics_window_new :: proc(we_base: ^ImGuiWindow, app: ^App, win_idx: int) {
 			id_sb,
 			win_idx,
 			{{}, {we_base.position.y.s + we_base.size.y.s, 0}},
-			{{we_base.size.x.s/2, 0}, {we_base.size.y.s, 0}},
-			{.MenuBar, .HorizontalScrollbar},
+			{{we_base.size.x.s / 2, 0}, {we_base.size.y.s, 0}},
+			{.MenuBar, .NoScrollbar, .AlwaysHorizontalScrollbar},
 			container_f = f_harmonics_draw,
 			destroy_f = f_harmonics_destroy,
 		)
@@ -47,7 +47,7 @@ f_harmonics_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: 
 	imgui_tl :=
 		imgui.GetCursorScreenPos() +
 		{0, -style.WindowPadding.y + imgui.GetTextLineHeightWithSpacing()} //Add text spacing to show harmonic number between sliders
-	graph_size := lgp.total_size - {0, style.ScrollbarSize}
+	graph_size := lgp.total_size - {0, style.ScrollbarSize * 2}
 	imgui.SetCursorScreenPos(imgui_tl)
 	h_wf_model := &app.state.we_h_wfs[win_idx]
 	item_space_x := style.ItemSpacing.x
@@ -60,33 +60,73 @@ f_harmonics_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: 
 	imgui.SetCursorScreenPos(imgui_tl + {0, slider_height / 2})
 	imgui.Text("Amplitude")
 	imgui.SetCursorScreenPos(imgui_tl + {label_width, 0})
+	mouse_c := imgui.GetMousePos()
+	@(static) tmp_f: f32 //To Update amp/phase whenever LMB is released except Ctrl + LMB
 	for i in 0 ..= h_wf_model.n {
-		tmp_id := fmt.tprintf("##A{}\x00", i)
+		tmp_f = h_wf_model.amp[i]
+		imgui.PushIDInt(i32(i))
 		imgui.VSliderFloat(
-			strings.unsafe_string_to_cstring(tmp_id),
+			"##A",
 			{slider_width, slider_height},
-			&h_wf_model.amp[i],
+			&tmp_f,
 			v_min = 0,
 			v_max = 1,
 			format = "%.3f",
 		)
+		if imgui.IsItemActive() && imgui.IsKeyDown(.ImGuiMod_Ctrl) {
+			app.state.we_edit_v = WeEditValue {
+				status  = .AExistsFocus,
+				win_idx = i16(win_idx),
+				idx     = i16(i),
+				x       = i16(mouse_c.x),
+				y       = i16(mouse_c.y),
+			}
+			wfm := &app.state.we_h_wfs[win_idx]
+			amp_f := wfm.amp[i]
+			temp_str := fmt.tprintf("%.10f\x00", amp_f)
+			delete(app.state.we_edit_s_buf)
+			app.state.we_edit_s_buf = make([dynamic]u8)
+			append(&app.state.we_edit_s_buf, temp_str)
+		} else {
+			h_wf_model.amp[i] = tmp_f
+		}
+		imgui.PopID()
 		if i != h_wf_model.n do imgui.SameLine()
 	}
 	imgui.SetCursorScreenPos(imgui_tl + {0, 3 * slider_height / 2})
 	imgui.Text("Phase (Degrees)")
 	imgui.SetCursorScreenPos(imgui_tl + {label_width, slider_height})
 	for i in 0 ..= h_wf_model.n {
-		tmp_id := fmt.tprintf("##P{}\x00", i)
 		tmp_deg := fmt.tprintf("%.1fd", math.to_degrees(h_wf_model.phase[i]))
 		if i != 0 {
+			tmp_f = h_wf_model.phase[i]
+			imgui.PushIDInt(i32(i))
 			imgui.VSliderFloat(
-				strings.unsafe_string_to_cstring(tmp_id),
+				"##P",
 				{slider_width, slider_height},
-				&h_wf_model.phase[i],
+				&tmp_f,
 				v_min = -2 * math.PI,
 				v_max = 2 * math.PI,
 				format = strings.unsafe_string_to_cstring(tmp_deg),
 			)
+			if imgui.IsItemActive() && imgui.IsKeyDown(.ImGuiMod_Ctrl) {
+				app.state.we_edit_v = WeEditValue {
+					status  = .PExistsFocus,
+					win_idx = i16(win_idx),
+					idx     = i16(i),
+					x       = i16(mouse_c.x),
+					y       = i16(mouse_c.y),
+				}
+				wfm := &app.state.we_h_wfs[win_idx]
+				phase_f := wfm.phase[i]
+				temp_str := fmt.tprintf("%.10f\x00", math.to_degrees(phase_f))
+				delete(app.state.we_edit_s_buf)
+				app.state.we_edit_s_buf = make([dynamic]u8)
+				append(&app.state.we_edit_s_buf, temp_str)
+			} else {
+				h_wf_model.phase[i] = tmp_f
+			}
+			imgui.PopID()
 		} else {
 			imgui.Dummy({slider_width, slider_height})
 		}
@@ -187,9 +227,7 @@ f_harmonics_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: 
 					flags = {.ClampOnInput},
 				)
 			}
-			help_marker(
-				"Shift the harmonics by set radians or degrees",
-			)
+			help_marker("Shift the harmonics by set radians or degrees")
 			if imgui.BeginMenu("Shift By") {
 				defer imgui.EndMenu()
 				if imgui.MenuItem("Apply") {
