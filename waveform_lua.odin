@@ -152,6 +152,7 @@ f_we_lua_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: raw
 					lua_desc_map["wemath.tau"] = "6.28318530717958647692528676655900576"
 					lua_desc_map["wemath.epsilon"] = "Epsilon (64-bit) = 2.2204460492503131e-016"
 					lua_desc_map["wemath.inf"] = "Positive Infinity (64-bit)"
+					lua_desc_map["wemath.f32max"] = "3.402823466e+38, or biggest number for a f32 float before reaching infinity\n"
 					lua_desc_keys = make([dynamic]cstring)
 					for k, v in lua_desc_map {
 						append(&lua_desc_keys, k)

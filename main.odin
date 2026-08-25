@@ -769,16 +769,16 @@ main :: proc() {
 
 		if app.state.we_edit_v.status != .None {
 			edit_s := &app.state.we_edit_v
-			title_cstr: cstring = ""
+			title_cstr: cstring = ---
 			switch edit_s.status {
 			case .None:
 				title_cstr = "##WE"
 			case .SExistsFocus, .SExists:
-				title_cstr = "Sample##WE"
+				title_cstr = "Edit Sample##WE"
 			case .AExistsFocus, .AExists:
-				title_cstr = "Amplitude##WE"
+				title_cstr = "Edit Amplitude##WE"
 			case .PExistsFocus, .PExists:
-				title_cstr = "Phase (Degrees)##WE"
+				title_cstr = "Edit Phase (Degrees)##WE"
 			}
 			if imgui.Begin(title_cstr, nil, {.NoMove, .NoResize, .NoCollapse}) {
 				#partial switch edit_s.status {

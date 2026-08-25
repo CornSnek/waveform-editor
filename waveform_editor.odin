@@ -635,8 +635,9 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 				}
 			}
 		} else {
-			if we_state.edit_state.type == .None {
-				if imgui.IsMouseClicked(.Left, false) {
+			if imgui.IsMouseClicked(.Left, false) {
+				#partial switch we_state.edit_state.type {
+				case .None, .DrawNone, .SelectIdle:
 					get_x := clamp(
 						i16(image_mouse_pos.x / bar_width_unsized),
 						0,
@@ -710,22 +711,26 @@ f_waveform_editor_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, user
 			}
 			imgui.EndTooltip()
 		}
-		if we_state.edit_state.type == .None {
-			imgui.DrawList_AddText(
-				draw_list,
-				imgui_tl + {imgui.GetScrollX(), 0},
-				0xffffffff,
-				"Ctrl + LMB to edit sample's value",
-			)
+		hover_window_text: cstring = ---
+		#partial switch we_state.edit_state.type {
+		case .None:
+			hover_window_text = "D for draw mode, S for select mode\nCtrl + LMB to edit sample's value"
+		case .DrawNone:
+			hover_window_text = "Ctrl + LMB to edit sample's value"
+		case .SelectIdle:
+			hover_window_text = `Drag to select samples, Ctrl + C to copy, Ctrl + X to cut, Delete to remove
+Ctrl + V to paste at left of selection, Ctrl + Shift + V to paste at mouse cursor position
+Ctrl + A to select all, Ctrl + Shift + A to deselect all
+Ctrl + LMB to edit a sample's value`
+		case:
+			hover_window_text = ""
 		}
-		if we_state.edit_state.type == .SelectIdle {
-			imgui.DrawList_AddText(
-				draw_list,
-				imgui_tl + {imgui.GetScrollX(), 0},
-				0xffffffff,
-				"Drag to select samples, Ctrl + C to copy, Ctrl + X to cut, Delete to remove\nCtrl + V to paste at left of selection, Ctrl + Shift + V to paste at mouse cursor position\nCtrl + A to select all, Ctrl + Shift + A to deselect all",
-			)
-		}
+		imgui.DrawList_AddText(
+			draw_list,
+			imgui_tl + {imgui.GetScrollX(), 0},
+			0xffffffff,
+			hover_window_text,
+		)
 	}
 	imgui.SetCursorScreenPos(
 		imgui_tl + {0, lgp.total_size.y - style.ScrollbarSize - imgui.GetTextLineHeight()},
@@ -1487,12 +1492,7 @@ _we_keybinds :: proc(
 		strings.write_string(&sb, "Draw Mode: ")
 		strings.write_string(&sb, "Enabled" if is_drawing else "Disabled")
 		strings.write_byte(&sb, 0)
-		tooltip_change(
-			app,
-			sb,
-			.Info,
-			app.state.frames + 2000 / u64(app.config.mspf),
-		)
+		tooltip_change(app, sb, .Info, app.state.frames + 2000 / u64(app.config.mspf))
 	}
 	if imgui.IsKeyPressed(.S, false) {
 		#partial switch we_state.edit_state.type {
@@ -1511,12 +1511,7 @@ _we_keybinds :: proc(
 		strings.write_string(&sb, "Select Mode: ")
 		strings.write_string(&sb, "Enabled" if is_selecting else "Disabled")
 		strings.write_byte(&sb, 0)
-		tooltip_change(
-			app,
-			sb,
-			.Info,
-			app.state.frames + 2000 / u64(app.config.mspf),
-		)
+		tooltip_change(app, sb, .Info, app.state.frames + 2000 / u64(app.config.mspf))
 	}
 	if we_state.edit_state.type == .SelectIdle {
 		select_v := &we_state.edit_state.v.select
@@ -1571,12 +1566,7 @@ _we_keybinds :: proc(
 			strings.write_string(&sb, "Playing Waveform: ")
 			strings.write_string(&sb, "Activated" if we_state.play else "Deactivated")
 			strings.write_byte(&sb, 0)
-			tooltip_change(
-				app,
-				sb,
-				.Info,
-				app.state.frames + 2000 / u64(app.config.mspf),
-			)
+			tooltip_change(app, sb, .Info, app.state.frames + 2000 / u64(app.config.mspf))
 		}
 		select_v := &we_state.edit_state.v.select
 		if we_state.edit_state.type == .SelectIdle {
@@ -1700,12 +1690,7 @@ _we_keybinds :: proc(
 			strings.write_string(&sb, "Master Gain:\n")
 			strings.write_string(&sb, string(cstring(&we_state.amp_buf[0])))
 			strings.write_byte(&sb, 0)
-			tooltip_change(
-				app,
-				sb,
-				.Info,
-				app.state.frames + 3000 / u64(app.config.mspf),
-			)
+			tooltip_change(app, sb, .Info, app.state.frames + 3000 / u64(app.config.mspf))
 		}
 		changed = false
 		if imgui.IsKeyPressed(.LeftBracket) {
@@ -1732,12 +1717,7 @@ _we_keybinds :: proc(
 				"above" if sr_a4 >= 0 else "below",
 			)
 			strings.write_byte(&sb, 0)
-			tooltip_change(
-				app,
-				sb,
-				.Info,
-				app.state.frames + 2000 / u64(app.config.mspf),
-			)
+			tooltip_change(app, sb, .Info, app.state.frames + 2000 / u64(app.config.mspf))
 		}
 	}
 }

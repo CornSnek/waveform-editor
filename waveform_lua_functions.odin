@@ -15,7 +15,6 @@ import fm "./fourier_model"
 import lua "vendor:lua/5.4"
 
 LUA_APP_UD_KEY: int
-LUA_BOOL_IS_WARN: int
 
 lua_get_app :: proc "c" (L: ^lua.State) -> ^App {
 	lua.pushlightuserdata(L, &LUA_APP_UD_KEY)
@@ -45,6 +44,7 @@ lua_register_functions :: proc(L: ^lua.State) {
 		{math.TAU, "tau"},
 		{math.F64_EPSILON, "epsilon"},
 		{lua.Number(math.INF_F64), "inf"},
+		{lua.Number(math.F32_MAX), "f32max"},
 	}
 	for c in CONSTANTS {
 		lua.pushnumber(L, c.n)
@@ -127,7 +127,11 @@ _lua_idx_from_window_table :: proc "c" (L: ^lua.State, app: ^App) -> (win_idx: i
 	}
 	return
 }
-LUA_WINDOW_DESC :: "window is a proxy metatable with the following keys\nidx: int - Window index (1-index, read-only)\nframe: int - Frame index (0-index, read/write)\nframes: int - Total number of frames for this window (read/write)\nsamples: int - Number of samples for this window (read/write)"
+LUA_WINDOW_DESC :: `window is a proxy metatable with the following keys
+idx: int - Window index (1-index, read-only)
+frame: int - Frame index (0-index, read/write)
+frames: int - Total number of frames for this window (read/write)
+samples: int - Number of samples for this window (read/write)`
 lua_window__newindex :: proc "c" (L: ^lua.State) -> c.int {
 	app := lua_get_app(L)
 	key := lua.tostring(L, 2)
@@ -205,7 +209,6 @@ LuaCustomFunction :: struct {
 	desc:          cstring,
 }
 
-
 //odinfmt: disable
 lua_math_functions :: [?]LuaCustomFunction{
     {ptr = proc "c" (L: ^lua.State) -> c.int {
@@ -213,28 +216,32 @@ lua_math_functions :: [?]LuaCustomFunction{
 		lua.pushnumber(L, abs(num))
 		return 1
 	}, lua_name = "abs", lua_full_path = "wemath.abs",
-		desc="f(x:float) -> float\nSets float values to positive x values",
+		desc=`f(x:float) -> float
+Sets float values to positive x values`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
 		num := lua.tonumber(L, 1)
 		lua.pushnumber(L, lua.Number(math.acos_f64(f64(num))))
 		return 1
 	}, lua_name = "acos", lua_full_path = "wemath.acos",
-		desc="f(x:float) -> y:float\nArc cosine where y is in radians",
+		desc=`f(x:float) -> y:float
+Arc cosine where y is in radians`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
     	num := lua.tonumber(L, 1)
     	lua.pushnumber(L, lua.Number(math.asin_f64(f64(num))))
     	return 1
     }, lua_name = "asin", lua_full_path = "wemath.asin",
-		desc="f(x:float) -> y:float\nArc sine where y is in radians",
+		desc=`f(x:float) -> y:float
+Arc sine where y is in radians`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
 	num := lua.tonumber(L, 1)
 		lua.pushnumber(L, lua.Number(math.atan(f64(num))))
     	return 1
     }, lua_name = "atan", lua_full_path = "wemath.atan",
-		desc="f(x:float) -> y:float\nArc tangent where y is in radians",
+		desc=`f(x:float) -> y:float
+Arc tangent where y is in radians`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
     	num := lua.tonumber(L, 1)
@@ -242,14 +249,17 @@ lua_math_functions :: [?]LuaCustomFunction{
 		lua.pushnumber(L, lua.Number(math.atan2_f64(f64(num), f64(num2))))
     	return 1
     }, lua_name = "atan2", lua_full_path = "wemath.atan2",
-		desc="f(x:float, y:float) -> a:float\nArc tangent using (x,y) coordinates where 0 degrees is (x:+,y:0) and +a is counter-clockwise",
+		desc=`f(x:float, y:float) -> a:float
+Arc tangent using (x,y) coordinates where 0 degrees is (x:+,y:0) and +a is counter-clockwise`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
     	num := lua.tonumber(L, 1)
 		lua.pushnumber(L, lua.Number(math.ceil(f64(num))))
     	return 1
     }, lua_name = "ceil", lua_full_path = "wemath.ceil",
-		desc="f(x:float) -> float\nSets values of x with decimals to the next integer value\nExample: ceil(3.3) = 4, ceil(2) = 3",
+		desc=`f(x:float) -> float
+Sets values of x with decimals to the next integer value
+Example: ceil(3.3) = 4, ceil(2) = 3`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
     	num := f64(lua.tonumber(L, 1))
@@ -257,7 +267,9 @@ lua_math_functions :: [?]LuaCustomFunction{
 		lua.pushnumber(L, lua.Number(chebyshev_wavefold(num,num2)))
     	return 1
     }, lua_name = "chebyshev", lua_full_path = "wemath.chebyshev",
-		desc="f(x:float, n:int) -> float\nUses chebyshev polynomials of the first kind where\nT_0(x) = 1, T_1(x) = x, T_n(x) = 2*x*T_{n-1}(x) - T_{n-2}(x)",
+		desc=`f(x:float, n:int) -> float
+Uses chebyshev polynomials of the first kind where
+T_0(x) = 1, T_1(x) = x, T_n(x) = 2*x*T_{n-1}(x) - T_{n-2}(x)`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
 		if lua.Type(lua.type(L, 1)) != .NUMBER {
@@ -267,7 +279,8 @@ lua_math_functions :: [?]LuaCustomFunction{
 		lua.pushcclosure(L, _lua_chebyshev_closure, 1)
     	return 1
     }, lua_name = "chebyshev_cl", lua_full_path = "wemath.chebyshev_cl",
-		desc="f(n:int) -> (f(x:float) -> float)\nReturns a closure function T_n describing chebyshev polynomials of the first kind. See wemath.chebyshev for the function",
+		desc=`f(n:int) -> (f(x:float) -> float)
+Returns a closure function T_n describing chebyshev polynomials of the first kind. See wemath.chebyshev for the function`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
     	num := lua.tonumber(L, 1)
@@ -276,21 +289,24 @@ lua_math_functions :: [?]LuaCustomFunction{
     	lua.pushnumber(L, clamp(num, num2, num3))
     	return 1
     }, lua_name = "clamp", lua_full_path = "wemath.clamp",
-		desc="f(x:float, a:float, b:float) -> float\nReturns x values between [a,b] only",
+		desc=`f(x:float, a:float, b:float) -> float
+Returns x values between [a,b] only`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
     	num := lua.tonumber(L, 1)
     	lua.pushnumber(L, lua.Number(math.cos_f64(f64(num))))
     	return 1
     }, lua_name = "cos", lua_full_path = "wemath.sin",
-		desc="f(x:float) -> float\nCosine where x is in radians",
+		desc=`f(x:float) -> float
+Cosine where x is in radians`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
     	num := lua.tonumber(L, 1)
 		lua.pushnumber(L, lua.Number(math.to_degrees_f64(f64(num))))
     	return 1
     }, lua_name = "deg", lua_full_path = "wemath.deg",
-		desc="f(x:float) -> float\nReturns radian values to degree values",
+		desc=`f(x:float) -> float
+Returns radian values to degree values`,
 	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
     	x: f64 = f64(lua.tonumber(L, 1))
@@ -298,14 +314,27 @@ lua_math_functions :: [?]LuaCustomFunction{
     	lua.pushnumber(L, lua.Number(math.pow_f64(-1, n) * (x - 2 * n)))
     	return 1
     }, lua_name = "fold", lua_full_path = "wemath.fold",
-		desc="f(x:float) -> float\nUses f(x) = pow(-1,n) * (x - 2*n), n = round(x/2)\nThis describes the triangle fold.",
+		desc=`f(x:float) -> float
+Uses f(x) = pow(-1,n) * (x - 2*n), n = round(x/2)
+This describes the triangle fold.`,
+	},
+	{ptr = proc "c" (L: ^lua.State) -> c.int {
+    	x: f64 = f64(lua.tonumber(L, 1))
+		b := math.is_inf_f32(f32(x),0)
+		lua.pushboolean(L, b32(b))
+    	return 1
+    }, lua_name = "isinf", lua_full_path = "wemath.isinf",
+		desc=`f(x:float) -> float
+Checks if x value is infinity (by f32).
+Lua uses f64 for float, but the data outside Lua uses f32`,
 	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
     	x: f64 = f64(lua.tonumber(L, 1))
 		lua.pushboolean(L, x!=x)
     	return 1
     }, lua_name = "isnan", lua_full_path = "wemath.isnan",
-		desc="f(x:float) -> float\nChecks if x value is nan by checking if x != x",
+		desc=`f(x:float) -> float
+Checks if x value is nan by checking if x != x`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
     	num := lua.tonumber(L, 1)
@@ -314,7 +343,8 @@ lua_math_functions :: [?]LuaCustomFunction{
     	lua.pushnumber(L, math.lerp(num, num2, num3))
     	return 1
     }, lua_name = "lerp", lua_full_path = "wemath.lerp",
-		desc="f(a:float, b:float, x:float) -> float\nFor x between [0,1] returns between [a,b]",
+		desc=`f(a:float, b:float, x:float) -> float
+For x between [0,1] returns between [a,b]`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
     	num := lua.tonumber(L, 1)
@@ -322,7 +352,8 @@ lua_math_functions :: [?]LuaCustomFunction{
 		lua.pushnumber(L, lua.Number(math.log_f64(f64(num), f64(num2))))
     	return 1
     }, lua_name = "log", lua_full_path = "wemath.log",
-		desc="f(x:float, b:float) -> float\nreturns logarithmic values of base b",
+		desc=`f(x:float, b:float) -> float
+returns logarithmic values of base b`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
     	n := lua.gettop(L)
@@ -334,7 +365,8 @@ lua_math_functions :: [?]LuaCustomFunction{
     	lua.pushnumber(L, res)
     	return 1
     }, lua_name = "max", lua_full_path = "wemath.max",
-		desc="f(..args:float) -> float\nReturns the maximum value between variadic number of arguments",
+		desc=`f(..args:float) -> float
+Returns the maximum value between variadic number of arguments`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
     	n := lua.gettop(L)
@@ -346,7 +378,8 @@ lua_math_functions :: [?]LuaCustomFunction{
     	lua.pushnumber(L, res)
     	return 1
     }, lua_name = "min", lua_full_path = "wemath.min",
-		desc="f(..args:float) -> float\nReturns the minimum value between variadic number of arguments",
+		desc=`f(..args:float) -> float
+Returns the minimum value between variadic number of arguments`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
     	num := lua.tonumber(L, 1)
@@ -355,14 +388,16 @@ lua_math_functions :: [?]LuaCustomFunction{
 		lua.pushnumber(L, lua.Number(rem))
     	return 2
     }, lua_name ="modf", lua_full_path = "wemath.modf",
-		desc="f(x:float) -> float\nReturns degree values to radian values",
+		desc=`f(x:float) -> float
+Returns degree values to radian values`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
     	num := lua.tonumber(L, 1)
 		lua.pushnumber(L, lua.Number(math.to_radians_f64(f64(num))))
     	return 1
     }, lua_name = "rad", lua_full_path = "wemath.rad",
-		desc="f(x:float) -> (r:float)\nReturns values of x with an integer float i and decimal float r",
+		desc=`f(x:float) -> (r:float)
+Returns values of x with an integer float i and decimal float r`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
     	num := lua.tonumber(L, 1)
@@ -370,7 +405,8 @@ lua_math_functions :: [?]LuaCustomFunction{
 		lua.pushnumber(L, lua.Number(math.pow_f64(f64(num), f64(num2))))
     	return 1
     }, lua_name = "pow", lua_full_path = "wemath.pow",
-		desc="f(x:float, b:float) -> float\nReturns x raised to the power of b (b^x)",
+		desc=`f(x:float, b:float) -> float
+Returns x raised to the power of b (b^x)`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
     	num := lua.tonumber(L, 1)
@@ -384,42 +420,49 @@ lua_math_functions :: [?]LuaCustomFunction{
 		)
     	return 1
     }, lua_name = "remap", lua_full_path = "wemath.remap",
-		desc="f(x:float, a:float, b:float, c:float, d:float) -> y:float\nLinearly transforms x from an old range [a,b] to a y-value of the new range [c,d]\nNote: This is an affine map 2x2 transformation described as [y,1]^T = [[(d-c)/(b-a), (b*c-a*d)/(b-a)],[0,1]] * [x,1]^T",
+		desc=`f(x:float, a:float, b:float, c:float, d:float) -> y:float
+Linearly transforms x from an old range [a,b] to a y-value of the new range [c,d]
+Note: This is an affine map 2x2 transformation described as [y,1]^T = [[(d-c)/(b-a), (b*c-a*d)/(b-a)],[0,1]] * [x,1]^T`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
     	num := lua.tonumber(L, 1)
     	lua.pushnumber(L, lua.Number(math.round_f64(f64(num))))
     	return 1
     }, lua_name = "round", lua_full_path = "wemath.round",
-		desc="f(x:float) -> v:float\nFor x values with decimal >= 0.5, returns the next integer. Otherwise, returns the last integer value.",
+		desc=`f(x:float) -> v:float
+For x values with decimal >= 0.5, returns the next integer. Otherwise, returns the last integer value.`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
     	num := lua.tonumber(L, 1)
     	lua.pushnumber(L, lua.Number(math.sign_f64(f64(num))))
     	return 1
     }, lua_name = "sgn", lua_full_path = "wemath.sgn",
-		desc="f(x:float) -> s:float\nReturns 1 if x is positive or -1 if negative",
+		desc=`f(x:float) -> s:float
+Returns 1 if x is positive or -1 if negative`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
     	num := lua.tonumber(L, 1)
     	lua.pushnumber(L, lua.Number(math.sin_f64(f64(num))))
     	return 1
     }, lua_name = "sin", lua_full_path = "wemath.sin",
-		desc="f(x:float) -> float\nSine where x is in radians",
+		desc=`f(x:float) -> float
+Sine where x is in radians`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
     	num := lua.tonumber(L, 1)
     	lua.pushnumber(L, lua.Number(math.sqrt_f64(f64(num))))
     	return 1
     }, lua_name = "sqrt", lua_full_path = "wemath.sqrt",
-		desc="f(x:float) -> float\nReturns square root of x where negative values return NaN",
+		desc=`f(x:float) -> float
+Returns square root of x where negative values return NaN`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
     	num := lua.tonumber(L, 1)
     	lua.pushnumber(L, lua.Number(math.tan_f64(f64(num))))
     	return 1
     }, lua_name = "tan", lua_full_path = "wemath.tan",
-		desc="f(x:float) -> float\nTangent where x is in radians",
+		desc=`f(x:float) -> float
+Tangent where x is in radians`,
 	},
 }//odinfmt: enable
 
@@ -469,10 +512,9 @@ _lua_check_frame :: proc "contextless" (
 	}
 }
 
-
-W_AND_F_PARAMETER :: "\nf is frame index and w is window index.\nNot using f or w uses the current frame or window."
-
-
+W_AND_F_PARAMETER :: `
+f is frame index and w is window index.
+Not using f or w uses the current frame or window.`
 
 //odinfmt: disable
 lua_waveform_effects :: [?]LuaCustomFunction{
@@ -492,7 +534,10 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		effect_nan_to_0_full(app, win_i, false)
 		return 0
 	}, lua_name = "nan_to_0", lua_full_path = "effects.nan_to_0",
-		desc="f(), or f(w:int)\nUses the NaN to 0 Effect.\nNote: This effect affects all frames in window index w.\nNo w uses the current window.",
+		desc=`f(), or f(w:int)
+Uses the NaN to 0 Effect.
+Note: This effect affects all frames in window index w.
+No w uses the current window.`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
 		context = app_context
@@ -506,7 +551,8 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		effect_gain_full(app, win_i, gain_v, false)
 		return 0
 	}, lua_name = "gain", lua_full_path = "effects.gain",
-		desc="f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)\nUses the Gain Effect with threshold x." + W_AND_F_PARAMETER,
+		desc=`f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
+Uses the Gain Effect with threshold x.` + W_AND_F_PARAMETER,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
 		context = app_context
@@ -520,7 +566,8 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		effect_normalization_full(app, win_i, normal_v, false)
 		return 0
 	}, lua_name = "normalization", lua_full_path = "effects.normalization",
-		desc="f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)\nUses the Normalization Effect with threshold x." + W_AND_F_PARAMETER,
+		desc=`f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
+Uses the Normalization Effect with threshold x.` + W_AND_F_PARAMETER,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
 		context = app_context
@@ -535,7 +582,8 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		effect_change_phase_full(app, win_i, ch_phase_v, false)
 		return 0
 	}, lua_name = "change_phase", lua_full_path = "effects.change_phase",
-		desc="f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)\nUses the Phase Shift Effect with threshold x." + W_AND_F_PARAMETER,
+		desc=`f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
+Uses the Phase Shift Effect with threshold x.` + W_AND_F_PARAMETER,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
 		context = app_context
@@ -551,7 +599,8 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		effect_comb_filter_feed_forward_full(app, win_i, comb_m_v, comb_n_v, false)
 		return 0
 	}, lua_name = "comb_feed_forward", lua_full_path = "effects.comb_feed_forward",
-		desc="f(m:float, n:int), f(m:float, n:int, f:int), or f(m:float, n:int, w:int, f:int)\nUses the Comb Filter Effect with thresholds m and n." + W_AND_F_PARAMETER,
+		desc=`f(m:float, n:int), f(m:float, n:int, f:int), or f(m:float, n:int, w:int, f:int)
+Uses the Comb Filter Effect with thresholds m and n.` + W_AND_F_PARAMETER,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
 		context = app_context
@@ -563,7 +612,8 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		effect_inversion_full(app, win_i, false)
 		return 0
 	}, lua_name = "inversion", lua_full_path = "effects.inversion",
-		desc="f(), f(f:int), or f(w:int, f:int)\nUses the Inversion Effect." + W_AND_F_PARAMETER,
+		desc=`f(), f(f:int), or f(w:int, f:int)
+Uses the Inversion Effect.` + W_AND_F_PARAMETER,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
 		context = app_context
@@ -575,7 +625,8 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		effect_fuzz_full(app, win_i, false)
 		return 0
 	}, lua_name = "fuzz", lua_full_path = "effects.fuzz",
-		desc="f(), f(f:int), or f(w:int, f:int)\nUses the Fuzz Effect." + W_AND_F_PARAMETER,
+		desc=`f(), f(f:int), or f(w:int, f:int)
+Uses the Fuzz Effect.` + W_AND_F_PARAMETER,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
 		context = app_context
@@ -589,7 +640,8 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		effect_hard_clip_full(app, win_i, hard_clip_v, false)
 		return 0
 	}, lua_name = "hard_clip", lua_full_path = "effects.hard_clip",
-		desc="f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)\nUses the Hard Clip Effect with threshold x." + W_AND_F_PARAMETER,
+		desc=`f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
+Uses the Hard Clip Effect with threshold x.` + W_AND_F_PARAMETER,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
 		context = app_context
@@ -603,7 +655,8 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		effect_soft_clip_full(app, win_i, soft_clip_v, false)
 		return 0
 	}, lua_name = "soft_clip", lua_full_path = "effects.soft_clip",
-		desc="f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)\nUses the Soft Clip Effect with threshold x." + W_AND_F_PARAMETER,
+		desc=`f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
+Uses the Soft Clip Effect with threshold x.` + W_AND_F_PARAMETER,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
 		context = app_context
@@ -617,7 +670,8 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		effect_bit_crusher_full(app, win_i, WaveformBitcrush(bitcrush_v-1), false)
 		return 0
 	}, lua_name = "bit_crusher", lua_full_path = "effects.bit_crusher",
-		desc="f(x:int), f(x:int, f:int), or f(x:int, w:int, f:int)\nUses the Bitcrusher Effect with x describing bits from [1,8]." + W_AND_F_PARAMETER,
+		desc=`f(x:int), f(x:int, f:int), or f(x:int, w:int, f:int)
+Uses the Bitcrusher Effect with x describing bits from [1,8].` + W_AND_F_PARAMETER,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
 		context = app_context
@@ -631,7 +685,8 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		effect_triangle_folding_full(app, win_i, wavefold_v, false)
 		return 0
 	}, lua_name = "triangle_fold", lua_full_path = "effects.triangle_fold",
-		desc="f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)\nUses the Triangle Folding Effect with threshold x." + W_AND_F_PARAMETER,
+		desc=`f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
+Uses the Triangle Folding Effect with threshold x.` + W_AND_F_PARAMETER,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
 		context = app_context
@@ -646,7 +701,8 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		effect_chebyshev_folding_full(app, win_i, cheb_n_v, false)
 		return 0
 	}, lua_name = "chebyshev_fold", lua_full_path = "effects.chebyshev_fold",
-		desc="f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)\nUses the Chebyshev Polynomial Effect with threshold x." + W_AND_F_PARAMETER,
+		desc=`f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
+Uses the Chebyshev Polynomial Effect with threshold x.` + W_AND_F_PARAMETER,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
 		context = app_context
@@ -660,7 +716,8 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		effect_n_overtone_full(app, win_i, overtone_v, false)
 		return 0
 	}, lua_name = "n_overtone", lua_full_path = "effects.n_overtone",
-		desc="f(x:int), f(x:int, f:int), or f(x:int, w:int, f:int)\nUses the As N Overtone Effect with threshold x." + W_AND_F_PARAMETER,
+		desc=`f(x:int), f(x:int, f:int), or f(x:int, w:int, f:int)
+Uses the As N Overtone Effect with threshold x.` + W_AND_F_PARAMETER,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
 		context = app_context
@@ -686,7 +743,10 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		effect_resampling_full(app, win_i, n_samp_v, n_samp_interp, false)
 		return 0
 	}, lua_name = "resampling", lua_full_path = "effects.resampling",
-		desc="f(x:string), or f(x:string, w:int)\nUses the Resampling Effect with interpolation value x as 'None', 'Linear', or 'Cubic'.\nNote: This effect affects all frames in window index w.\nNo w uses the current window.",
+		desc=`f(x:string), or f(x:string, w:int)
+Uses the Resampling Effect with interpolation value x as 'None', 'Linear', or 'Cubic'.
+Note: This effect affects all frames in window index w.
+No w uses the current window.`,
 	},
     {ptr = proc "c" (L: ^lua.State) -> c.int {
 		context = app_context
@@ -700,7 +760,8 @@ lua_waveform_effects :: [?]LuaCustomFunction{
 		effect_offset_full(app, win_i, offset_v, false)
 		return 0
 	}, lua_name = "offset", lua_full_path = "effects.offset",
-		desc="f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)\nUses the Vertical Offset Effect with threshold x." + W_AND_F_PARAMETER,
+		desc=`f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
+Uses the Vertical Offset Effect with threshold x.` + W_AND_F_PARAMETER,
 	},
 }//odinfmt: enable
 lua_print :: proc "c" (L: ^lua.State) -> c.int {
@@ -794,7 +855,8 @@ lua_data_functions :: [?]LuaCustomFunction{
 		data_frame := we_state.data_frame
 		return _lua_data(L, 0, app, win_i, f32(data_frame))
 	}, lua_name = "s", lua_full_path = "data.s",
-		desc="f(s:int) -> float or f(s:int, v:float)\nReturns the value of sample at index s (0-index) at the current frame and window. If v is used, sets sample with value v instead.",
+		desc=`f(s:int) -> float or f(s:int, v:float)
+Returns the value of sample at index s (0-index) at the current frame and window. If v is used, sets sample with value v instead.`,
 	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
 		app := lua_get_app(L)
@@ -802,7 +864,8 @@ lua_data_functions :: [?]LuaCustomFunction{
 		data_frame := lua.tonumber(L, 1)
 		return _lua_data(L, 1, app, win_i, f32(data_frame))
 	}, lua_name = "fs", lua_full_path = "data.fs",
-		desc="f(f:int, s:int) -> float or f(f:int, s:int, v:float)\nReturns the value of at frame index f (0-index) at sample index s (0-index) and current window. If v is used, sets sample with value v instead.",
+		desc=`f(f:int, s:int) -> float or f(f:int, s:int, v:float)
+Returns the value of at frame index f (0-index) at sample index s (0-index) and current window. If v is used, sets sample with value v instead.`,
 	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
 		app := lua_get_app(L)
@@ -812,7 +875,8 @@ lua_data_functions :: [?]LuaCustomFunction{
 		data_frame := lua.tonumber(L, 2)
 		return _lua_data(L, 2, app, win_i, f32(data_frame))
 	}, lua_name = "wfs", lua_full_path = "data.wfs",
-		desc="f(w: int, f:int, s:int) -> float or f(w: int, f:int, s:int, v:float)\nReturns the value of at frame index f (0-index) at sample index s (0-index) at window index w (1-index). If v is used, sets sample with value v instead.",
+		desc=`f(w: int, f:int, s:int) -> float or f(w: int, f:int, s:int, v:float)
+Returns the value of at frame index f (0-index) at sample index s (0-index) at window index w (1-index). If v is used, sets sample with value v instead.`,
 	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
 		app := lua_get_app(L)
@@ -838,7 +902,8 @@ lua_data_functions :: [?]LuaCustomFunction{
 		)
 		return 0
 	}, lua_name = "copy", lua_full_path = "data.copy",
-		desc="f(ff:int, ft:int)\nCopies samples from frame indices ft to tt (both 0-index)",
+		desc=`f(ff:int, ft:int)
+Copies samples from frame indices ft to tt (both 0-index)`,
 	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
 		app := lua_get_app(L)
@@ -868,7 +933,8 @@ lua_data_functions :: [?]LuaCustomFunction{
 		}
 		return 0
 	}, lua_name = "move", lua_full_path = "data.move",
-		desc="f(ff:int, ft:int)\nMoves samples from frame indices ft to tt (both 0-index) where ff samples will be set to 0",
+		desc=`f(ff:int, ft:int)
+Moves samples from frame indices ft to tt (both 0-index) where ff samples will be set to 0`,
 	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
 		app := lua_get_app(L)
@@ -893,7 +959,8 @@ lua_data_functions :: [?]LuaCustomFunction{
 		}
 		return 0
 	}, lua_name = "swap", lua_full_path = "data.swap",
-		desc="f(ff:int, ft:int)\nSwaps samples for frame indices ft and tt (both 0-index)",
+		desc=`f(ff:int, ft:int)
+Swaps samples for frame indices ft and tt (both 0-index)`,
 	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
 		app := lua_get_app(L)
@@ -909,7 +976,8 @@ lua_data_functions :: [?]LuaCustomFunction{
 		}
 		return 0
 	}, lua_name = "delete", lua_full_path = "data.delete",
-		desc="f(f:int)\nSets all samples of frame f (0-index) to 0",
+		desc=`f(f:int)
+Sets all samples of frame f (0-index) to 0`,
 	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
 		app := lua_get_app(L)
@@ -922,7 +990,8 @@ lua_data_functions :: [?]LuaCustomFunction{
 		}
 		return 1
 	}, lua_name = "table_r", lua_full_path = "data.table_r",
-		desc="f() -> table, f(f:int) -> table, or f(w:int, f:int) -> table\nReturns a table of all sample indices (1-index)" + W_AND_F_PARAMETER,
+		desc=`f() -> table, f(f:int) -> table, or f(w:int, f:int) -> table
+Returns a table of all sample indices (1-index)` + W_AND_F_PARAMETER,
 	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
 		app := lua_get_app(L)
@@ -949,7 +1018,8 @@ lua_data_functions :: [?]LuaCustomFunction{
 		}
 		return 0
 	}, lua_name = "table_w", lua_full_path = "data.table_w",
-		desc="f(t:table), f(t:table, f:int), or f(t:table, w:int, f:int), where t is type [int] = float\nSets values using table t where t key values are 1-index" + W_AND_F_PARAMETER,
+		desc=`f(t:table), f(t:table, f:int), or f(t:table, w:int, f:int), where t is type [int] = float
+Sets values using table t where t key values are 1-index` + W_AND_F_PARAMETER,
 	},
 }//odinfmt: enable
 lua_apply_preset :: proc "c" (L: ^lua.State) -> c.int {
@@ -979,10 +1049,11 @@ lua_apply_preset :: proc "c" (L: ^lua.State) -> c.int {
 	return 0
 }
 LUA_APPLY_PRESET_DESC ::
-	"f(i:int), f(i:int, f:int), or f(i:int, w:int, f:int)\nChanges all samples in a frame to preset waveforms, where the preset names are in the table preset and contains the i value.\nUse 'print(presets)' to check the values." +
+	`f(i:int), f(i:int, f:int), or f(i:int, w:int, f:int)
+Changes all samples in a frame to preset waveforms, where the preset names are in the table preset and contains the i value.
+Use 'print(presets)' to check the values.` +
 	W_AND_F_PARAMETER
 LUA_HARMONICS_USE_APPLY :: "\nharmonics.apply is required to be called to apply the harmonics values."
-
 
 //odinfmt: disable
 lua_harmonics_functions :: [?]LuaCustomFunction{
@@ -996,7 +1067,8 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		harmonics_update_model(app, win_i)
 		return 0
 	}, lua_name = "update", lua_full_path = "harmonics.update",
-		desc="f(), f(f:int), or f(w:int, f:int)\nUpdates the harmonic values and graph of the current frame. Use this first when editing any harmonics functions first." + W_AND_F_PARAMETER,
+		desc=`f(), f(f:int), or f(w:int, f:int)
+Updates the harmonic values and graph of the current frame. Use this first when editing any harmonics functions first.` + W_AND_F_PARAMETER,
 	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
 		app := lua_get_app(L)
@@ -1008,7 +1080,8 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		harmonics_apply(app, win_i, false)
 		return 0
 	}, lua_name = "apply", lua_full_path = "harmonics.apply",
-		desc="f(), f(f:int), or f(w:int, f:int)\nApplies the current harmonic values by changing the sample values." + W_AND_F_PARAMETER,
+		desc=`f(), f(f:int), or f(w:int, f:int)
+Applies the current harmonic values by changing the sample values.` + W_AND_F_PARAMETER,
 	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
 		context = app_context
@@ -1025,7 +1098,8 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		effect_low_pass(app, win_i, low_pass_v, false)
 		return 0
 	}, lua_name = "low_pass", lua_full_path = "harmonics.low_pass",
-		desc="f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)\nUses the Low Pass Harmonics Effect with threshold x." + W_AND_F_PARAMETER,
+		desc=`f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
+Uses the Low Pass Harmonics Effect with threshold x.` + W_AND_F_PARAMETER,
 	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
 		context = app_context
@@ -1042,7 +1116,8 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		effect_high_pass(app, win_i, high_pass_v, false)
 		return 0
 	}, lua_name = "high_pass", lua_full_path = "harmonics.high_pass",
-		desc="f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)\nUses the High Pass Harmonics Effect with threshold x." + W_AND_F_PARAMETER,
+		desc=`f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
+Uses the High Pass Harmonics Effect with threshold x.` + W_AND_F_PARAMETER,
 	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
 		context = app_context
@@ -1055,7 +1130,8 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		effect_odd_harmonics_only(app, win_i, false)
 		return 0
 	}, lua_name = "only_odd", lua_full_path = "harmonics.only_odd",
-		desc="f(), f(f:int), or f(w:int, f:int)\nUses the Odd Harmonics Only Harmonics Effect." + W_AND_F_PARAMETER,
+		desc=`f(), f(f:int), or f(w:int, f:int)
+Uses the Odd Harmonics Only Harmonics Effect.` + W_AND_F_PARAMETER,
 	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
 		context = app_context
@@ -1068,7 +1144,8 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		effect_even_harmonics_only(app, win_i, false)
 		return 0
 	}, lua_name = "only_even", lua_full_path = "harmonics.only_even",
-		desc="f(), f(f:int), or f(w:int, f:int)\nUses the Even Harmonics Only Harmonics Effect." + W_AND_F_PARAMETER,
+		desc=`f(), f(f:int), or f(w:int, f:int)
+Uses the Even Harmonics Only Harmonics Effect.` + W_AND_F_PARAMETER,
 	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
 		context = app_context
@@ -1082,7 +1159,8 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		effect_shift_harmonics(app, win_i, h_shift_by, false)
 		return 0
 	}, lua_name = "shift", lua_full_path = "harmonics.shift",
-		desc="f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)\nUses the Shift By Effect with threshold x in radians." + W_AND_F_PARAMETER,
+		desc=`f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
+Uses the Shift By Effect with threshold x in radians.` + W_AND_F_PARAMETER,
 	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
 		context = app_context
@@ -1097,7 +1175,9 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		lua.pushnumber(L, lua.Number(wfm.amp[amp_i]))
 		return 1
 	}, lua_name = "amplitude_r", lua_full_path = "harmonics.amplitude_r",
-		desc="f(h:int) -> float, f(h:int, f:int) -> float, or f(h:int, w:int, f:int) -> float\nGets the current value of amplitude by harmonic index h (1-index).\nh at 0 returns the DC Offset" + W_AND_F_PARAMETER,
+		desc=`f(h:int) -> float, f(h:int, f:int) -> float, or f(h:int, w:int, f:int) -> float
+Gets the current value of amplitude by harmonic index h (1-index).
+h at 0 returns the DC Offset` + W_AND_F_PARAMETER,
 	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
 		context = app_context
@@ -1113,7 +1193,9 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		wfm.amp[amp_i] = new_value
 		return 0
 	}, lua_name = "amplitude_w", lua_full_path = "harmonics.amplitude_w",
-		desc="f(h:int, v:float), f(h:int, v:float, f:int), or f(h:int, v:float, w:int, f:int)\nSets the current value of amplitude by harmonic index h (1-index) with value v.\nh at 0 sets the DC Offset" + LUA_HARMONICS_USE_APPLY + W_AND_F_PARAMETER,
+		desc=`f(h:int, v:float), f(h:int, v:float, f:int), or f(h:int, v:float, w:int, f:int)
+Sets the current value of amplitude by harmonic index h (1-index) with value v.
+h at 0 sets the DC Offset` + LUA_HARMONICS_USE_APPLY + W_AND_F_PARAMETER,
 	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
 		context = app_context
@@ -1128,7 +1210,8 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		lua.pushnumber(L, lua.Number(wfm.phase[ph_i]))
 		return 1
 	}, lua_name = "phase_r", lua_full_path = "harmonics.phase_r",
-		desc="f(h:int) -> float, f(h:int, f:int) -> float, or f(h:int, w:int, f:int) -> float\nGets the current value the phase by harmonic index h (1-index)" + W_AND_F_PARAMETER,
+		desc=`f(h:int) -> float, f(h:int, f:int) -> float, or f(h:int, w:int, f:int) -> float
+Gets the current value the phase by harmonic index h (1-index)` + W_AND_F_PARAMETER,
 	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
 		context = app_context
@@ -1144,7 +1227,8 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		wfm.phase[ph_i] = math.mod(new_value,(2 * math.PI))
 		return 0
 	}, lua_name = "phase_w", lua_full_path = "harmonics.phase_w",
-		desc="f(h:int, v:float), f(h:int, f:int, v:float), or f(h:int, w:int, f:int, v:float)\nSets the current value the phase by harmonic index h (1-index) with value v" + LUA_HARMONICS_USE_APPLY + W_AND_F_PARAMETER,
+		desc=`f(h:int, v:float), f(h:int, f:int, v:float), or f(h:int, w:int, f:int, v:float)
+Sets the current value the phase by harmonic index h (1-index) with value v` + LUA_HARMONICS_USE_APPLY + W_AND_F_PARAMETER,
 	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
 		app := lua_get_app(L)
@@ -1168,7 +1252,9 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		}
 		return 1
 	}, lua_name = "table_r", lua_full_path = "harmonics.table_r",
-		desc="f() -> t:table, f(f:int) -> t:table, or f(w:int, f:int) -> t:table\nwhere t has type t[int] = {['a']=float, ['p']=float} and t['dc']=float\nReturns table describing the harmonics and DC offset" + W_AND_F_PARAMETER,
+		desc=`f() -> t:table, f(f:int) -> t:table, or f(w:int, f:int) -> t:table
+where t has type t[int] = {['a']=float, ['p']=float} and t['dc']=float
+Returns table describing the harmonics and DC offset` + W_AND_F_PARAMETER,
 	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
 		app := lua_get_app(L)
@@ -1213,7 +1299,9 @@ lua_harmonics_functions :: [?]LuaCustomFunction{
 		}
 		return 0
 	}, lua_name = "table_w", lua_full_path = "harmonics.table_w",
-		desc="f(t:table), f(t:table, f:int), or f(t:table, w:int, f:int)\nwhere t has type t[int] = {['a']=float, ['p']=float} and t['dc']=float\nSets harmonics using table t" + LUA_HARMONICS_USE_APPLY + W_AND_F_PARAMETER,
+		desc=`f(t:table), f(t:table, f:int), or f(t:table, w:int, f:int)
+where t has type t[int] = {['a']=float, ['p']=float} and t['dc']=float
+Sets harmonics using table t` + LUA_HARMONICS_USE_APPLY + W_AND_F_PARAMETER,
 	},
 }//odinfmt: enable
 _lua_check_harmonic_index :: proc "c" (
@@ -1264,7 +1352,10 @@ lua_map :: proc "c" (L: ^lua.State) -> c.int {
 	lua.pushvalue(L, table_i)
 	return 1
 }
-LUA_MAP_DESC :: "function(t:table, f:function) where t is t[int]=anytype\nand f is f(anytype, idx:int, t:table) -> anytype|nil\nSets values in table to the return type of f.\nidx refers to the index of t (1-index)"
+LUA_MAP_DESC :: `function(t:table, f:function) where t is t[int]=anytype
+and f is f(anytype, idx:int, t:table) -> anytype|nil
+Sets values in table to the return type of f.
+idx refers to the index of t (1-index)`
 _lua_data :: proc "c" (
 	L: ^lua.State,
 	shift_by: c.int,
