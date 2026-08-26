@@ -304,7 +304,6 @@ f_image_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawp
 	imgui.SetCursorPos(imgui_tl + {0, content_size.y - 100})
 	if imgui.BeginChild("Bottom Panel", {content_size.x, 100}) {
 		imgui.SetCursorPos(style.FramePadding)
-		defer imgui.EndChild()
 		help_marker(
 			"Parse Region determines the region of the image\nwhere the code will parse the image for a waveform\nof an oscilloscope.",
 		)
@@ -384,6 +383,7 @@ f_image_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawp
 			we_img.eyedrop_state = .IdleHold
 		}
 	}
+	imgui.EndChild()
 	if we_img.crop != {} {
 		if .Up in we_img.crop do _we_image_drag_up(app, img_coord)
 		if .Down in we_img.crop do _we_image_drag_down(app, img_coord)
