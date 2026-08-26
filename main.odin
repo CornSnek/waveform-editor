@@ -17,9 +17,9 @@ import sdl "vendor:sdl3"
 
 import "./colors"
 import fm "./fourier_model"
-import imgui "imgui:/"
-import imgui_sdl3 "imgui:/imgui_impl_sdl3"
-import imgui_sdlgpu3 "imgui:/imgui_impl_sdlgpu3"
+import imgui "imgui:."
+import imgui_sdl3 "imgui:imgui_impl_sdl3"
+import imgui_sdlgpu3 "imgui:imgui_impl_sdlgpu3"
 
 app_context: runtime.Context
 log_fn :: proc "c" (

@@ -10,7 +10,7 @@ import "core:log"
 import "core:sort"
 import "core:strings"
 
-import imgui "imgui:/"
+import imgui "imgui:."
 import lua "vendor:lua/5.4"
 
 LuaCustomDescMap :: map[cstring]cstring //As map[lua_full_path]desc

@@ -11,7 +11,7 @@ import "core:strings"
 import "core:sync"
 import "core:thread"
 
-import imgui "imgui:/"
+import imgui "imgui:."
 import pb "playback_buffer"
 import ma "vendor:miniaudio"
 import sdl "vendor:sdl3"

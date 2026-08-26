@@ -7,7 +7,7 @@ import "core:reflect"
 import "core:strings"
 import "core:time"
 
-import imgui "imgui:/"
+import imgui "imgui:."
 
 OUTPUT_LOG_MAX_MESSAGES :: 200
 OutputLog :: struct {

@@ -14,7 +14,7 @@ import "core:sync"
 
 import "./assets"
 import "./colors"
-import imgui "imgui:/"
+import imgui "imgui:."
 import ma "vendor:miniaudio"
 
 //data is a combined array of frames * MAX_WAVEFORM_EDITOR_POINTS

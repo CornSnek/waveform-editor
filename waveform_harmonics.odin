@@ -7,7 +7,7 @@ import "core:math"
 import "core:strings"
 
 import fm "./fourier_model"
-import imgui "imgui:/"
+import imgui "imgui:."
 
 harmonics_window_new :: proc(we_base: ^ImGuiWindow, app: ^App, win_idx: int) {
 	if !app.windows.harmonics[win_idx].is_active {
