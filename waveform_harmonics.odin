@@ -227,7 +227,7 @@ f_harmonics_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: 
 					flags = {.ClampOnInput},
 				)
 			}
-			help_marker("Shift the harmonics by set radians or degrees")
+			help_marker("Shift the waveform by set radians or degrees")
 			if imgui.BeginMenu("Shift By") {
 				defer imgui.EndMenu()
 				if imgui.MenuItem("Apply") {
@@ -257,6 +257,21 @@ f_harmonics_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: 
 			if imgui.MenuItem("Even Harmonics Only") {
 				effect_even_harmonics_only(app, win_idx)
 			}
+		}
+		if imgui.BeginMenu("Help") {
+			defer imgui.EndMenu()
+			imgui.Text(
+				`This window models the waveforms from the editor using Discrete Fourier Transform (DFT).
+
+You can drag the sliders to manipulate the model's amplitude and phase
+and press Ctrl+A to apply the new formula
+to edit all the samples pointsin the current frame.
+
+Note: When applying the new formula, some sample points may be ouside the range [-1,1]. Use the waveform editor Effects
+Hard Clip, Normalization, folding Effects to get the points back to [-1,1]
+
+When using the Harmonics Effects, the formula will be applied to the sample points immediately`,
+			)
 		}
 	}
 	if imgui.IsWindowFocused() {

@@ -509,6 +509,18 @@ main :: proc() {
 				}
 				imgui.EndMenu()
 			}
+			if imgui.BeginMenu("Help") {
+				defer imgui.EndMenu()
+				imgui.Text(
+					`This app edits and can draw audio waveforms up to %d samples and %d frames.
+You can import and export the waveforms as .wav wavetables or as integer text values.
+In File > Load File, you can load image files or .wav files to allow
+importing audio waveforms through the waveform editor windows.
+Most widgets that contain numbers can be clicked with Ctrl + LMB to manually edit its number value.`,
+					MAX_WAVEFORM_EDITOR_POINTS,
+					MAX_WAVEFORM_EDITOR_POINTS,
+				)
+			}
 			imgui.EndMainMenuBar()
 		}
 

@@ -239,12 +239,7 @@ f_draw_oscilloscope :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdat
 				strings.write_string(&sb, "Window Size:\n")
 				fmt.sbprintf(&sb, "%d Hz", osc_frame_size)
 				strings.write_byte(&sb, 0)
-				tooltip_change(
-					app,
-					sb,
-					.Info,
-					app.state.frames + 2000 / u64(app.config.mspf),
-				)
+				tooltip_change(app, sb, .Info, app.state.frames + 2000 / u64(app.config.mspf))
 			}
 		}
 	}

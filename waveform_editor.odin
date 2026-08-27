@@ -1402,6 +1402,25 @@ Ctrl + LMB to edit a sample's value`
 				)
 			}
 		}
+		if imgui.BeginMenu("Help") {
+			defer imgui.EndMenu()
+			imgui.Text(`The waveform editor is used to draw or
+process waveforms from other files such as .wav files or image files
+that include oscilloscopes of an audio waveform.
+
+Other sub windows can be used such as the Harmonics window
+to edit the harmonics of a waveform and the Lua window
+to edit the waveforms using Lua scripting
+
+You can also import and export waveforms as a single .wav file combined
+with all the frames, or multiple .wav files per frame in a Directory
+You can also import as text as integer values. This option is created
+for FamiTracker's and FamiStudio's N163 and FDS wavetable/waveform creation.
+
+Note: To export, all sample values must be between -1 or 1 per frame and not NaN. To fix this, use
+the Effects such as Hard Clip at 1.0, Normalization at 1.0, or Triangle Wavefold at 1.0
+Use NaN to 0 for any NaN values`)
+		}
 		imgui.EndMenuBar()
 	}
 }
@@ -1937,6 +1956,7 @@ f_import_export_text :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userda
 		imgui.SetTooltip("Ctrl+LMB to manually type value, [-32768, 32767] allowed")
 	}
 	if ie_text == .Import {
+		help_marker("Select how many integer samples would be used per frame")
 		imgui.SliderInt("Samples Per Frame", &import_samples, 1, MAX_WAVEFORM_EDITOR_POINTS)
 	}
 	if ie_text == .Export {

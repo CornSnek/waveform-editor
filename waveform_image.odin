@@ -1,13 +1,14 @@
 package waveform_editor
 
 import "core:container/handle_map"
+import "core:fmt"
 import "core:log"
 import "core:math"
 import "core:math/linalg"
 import "core:strings"
 
-import imgui "imgui:."
 import "assets"
+import imgui "imgui:."
 import sdl "vendor:sdl3"
 import stbimg "vendor:stb/image"
 
@@ -16,6 +17,7 @@ CropDrag :: enum {
 	Down,
 	Left,
 	Right,
+	All,
 }
 
 EyeDropState :: enum {
@@ -40,6 +42,7 @@ WEImageState :: struct {
 	cg:            i32,
 	cb:            i32,
 	parse_color:   u32,
+	all_drag_adj:  [2]f32,
 	crop:          bit_set[CropDrag],
 	old_c:         [3]u8,
 	eyedrop_state: EyeDropState,
@@ -136,7 +139,7 @@ f_image_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawp
 	content_size := imgui.GetWindowSize() - imgui_tl
 	mouse_c := imgui.GetMousePos()
 	we_img := &app.state.we_img
-	if !we_img.init_center {
+	if !we_img.init_center && content_size.x > 50 && content_size.y > 50 {
 		we_img.ox = (content_size.x - f32(we_img.pixels.width)) / 2
 		we_img.oy = (content_size.y - f32(we_img.pixels.height)) / 2
 		we_img.init_center = true
@@ -178,8 +181,8 @@ f_image_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawp
 			we_img.use_pan = true
 		}
 		if imgui.IsKeyPressed(.R) || imgui.IsMouseClicked(.Middle, false) {
-			we_img.ox = 0
-			we_img.oy = 0
+			we_img.ox = (content_size.x - f32(we_img.pixels.width)) / 2
+			we_img.oy = (content_size.y - f32(we_img.pixels.height)) / 2
 			we_img.scale = 1
 		}
 		_image_keybinds(base, app, win_idx, userdata)
@@ -231,45 +234,70 @@ f_image_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawp
 		imgui.SetCursorPos(imgui_tl)
 		imgui.InvisibleButton("LMBDrag", content_size)
 		if imgui.IsItemHovered() {
-			if we_img.eyedrop_state == .Idle &&
-			   we_img.crop == {} &&
-			   imgui.IsMouseClicked(.Left, false) {
-				less_dist: f32 = math.inf_f32(1)
-				if img_coord.x >= we_img.rx && img_coord.x <= we_img.rx + we_img.rw {
-					dist: f32 = ---
-					if dist = math.abs(img_coord.y - we_img.ry); dist < less_dist {
-						we_img.crop = {.Up}
-						less_dist = dist
+			if we_img.eyedrop_state == .Idle && we_img.crop == {} {
+				hover_crop: bit_set[CropDrag]
+				if !imgui.IsKeyDown(.ImGuiMod_Ctrl) {
+					less_dist: f32 = math.inf_f32(1)
+					if img_coord.x >= we_img.rx && img_coord.x <= we_img.rx + we_img.rw {
+						dist: f32 = ---
+						if dist = math.abs(img_coord.y - we_img.ry); dist < less_dist {
+							hover_crop = {.Up}
+							less_dist = dist
+						}
+						if dist = math.abs(img_coord.y - we_img.ry - we_img.rh); dist < less_dist {
+							hover_crop = {.Down}
+							less_dist = dist
+						}
+					} else if img_coord.y >= we_img.ry && img_coord.y <= we_img.ry + we_img.rh {
+						dist: f32 = ---
+						if dist = math.abs(img_coord.x - we_img.rx); dist < less_dist {
+							hover_crop = {.Left}
+							less_dist = dist
+						}
+						if dist = math.abs(img_coord.x - we_img.rx - we_img.rw); dist < less_dist {
+							hover_crop = {.Right}
+							less_dist = dist
+						}
+					} else {
+						switch {
+						case img_coord.x < we_img.rx && img_coord.y < we_img.ry:
+							hover_crop = {.Up, .Left}
+						case img_coord.x > we_img.rx + we_img.rw && img_coord.y < we_img.ry:
+							hover_crop = {.Up, .Right}
+						case img_coord.x < we_img.rx && img_coord.y > we_img.ry + we_img.rh:
+							hover_crop = {.Down, .Left}
+						case img_coord.x > we_img.rx + we_img.rw &&
+						     img_coord.y > we_img.ry + we_img.rh:
+							hover_crop = {.Down, .Right}
+						}
 					}
-					if dist = math.abs(img_coord.y - we_img.ry - we_img.rh); dist < less_dist {
-						we_img.crop = {.Down}
-						less_dist = dist
-					}
-				} else if img_coord.y >= we_img.ry && img_coord.y <= we_img.ry + we_img.rh {
-					dist: f32 = ---
-					if dist = math.abs(img_coord.x - we_img.rx); dist < less_dist {
-						we_img.crop = {.Left}
-						less_dist = dist
-					}
-					if dist = math.abs(img_coord.x - we_img.rx - we_img.rw); dist < less_dist {
-						we_img.crop = {.Right}
-						less_dist = dist
+					switch hover_crop {
+					case {.Up, .Left}, {.Down, .Right}:
+						imgui.SetMouseCursor(.ResizeNWSE)
+					case {.Up, .Right}, {.Down, .Left}:
+						imgui.SetMouseCursor(.ResizeNESW)
+					case {.Up}:
+						custom_cursor(app, .Up, {10, 10}, {0, 0})
+					case {.Down}:
+						custom_cursor(app, .Down, {10, 10}, {0, 0})
+					case {.Left}:
+						custom_cursor(app, .Left, {10, 10}, {0, 0})
+					case {.Right}:
+						custom_cursor(app, .Right, {10, 10}, {0, 0})
 					}
 				} else {
-					switch {
-					case img_coord.x < we_img.rx && img_coord.y < we_img.ry:
-						we_img.crop = {.Up, .Left}
-					case img_coord.x > we_img.rx + we_img.rw && img_coord.y < we_img.ry:
-						we_img.crop = {.Up, .Right}
-					case img_coord.x < we_img.rx && img_coord.y > we_img.ry + we_img.rh:
-						we_img.crop = {.Down, .Left}
-					case img_coord.x > we_img.rx + we_img.rw &&
-					     img_coord.y > we_img.ry + we_img.rh:
-						we_img.crop = {.Down, .Right}
-					}
+					imgui.SetMouseCursor(.ResizeAll)
+					hover_crop = {.All}
 				}
-				we_img.mid_rx = we_img.rx + we_img.rw / 2
-				we_img.mid_ry = we_img.ry + we_img.rh / 2
+				if imgui.IsMouseClicked(.Left, false) {
+					if !imgui.IsKeyDown(.ImGuiMod_Ctrl) {
+						we_img.mid_rx = we_img.rx + we_img.rw / 2
+						we_img.mid_ry = we_img.ry + we_img.rh / 2
+					} else {
+						we_img.all_drag_adj = img_coord - {we_img.rx, we_img.ry}
+					}
+					we_img.crop = hover_crop
+				}
 			}
 		}
 	}
@@ -385,6 +413,7 @@ f_image_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawp
 	}
 	imgui.EndChild()
 	if we_img.crop != {} {
+		if .All in we_img.crop do _we_image_drag_all(app, img_coord)
 		if .Up in we_img.crop do _we_image_drag_up(app, img_coord)
 		if .Down in we_img.crop do _we_image_drag_down(app, img_coord)
 		if .Left in we_img.crop do _we_image_drag_left(app, img_coord)
@@ -511,7 +540,25 @@ f_image_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: rawp
 				app.state.import_wf_norm = !app.state.import_wf_norm
 			}
 		}
+		if imgui.BeginMenu("Help") {
+			defer imgui.EndMenu()
+			imgui.Text(`Use images that contain oscilloscopes of audio waveforms.
+Ensure that the oscilloscope line color is set before parsing to the waveform editor.
+Hold LMB to manipulate the rectangular region or edges to read.
+Use Ctrl + LMB for symmetrical region resizing.
+Use Shift + LMB to drag the rectangular region.
+Hold RMB to pan the screen.
+Scroll with MMB or use I/O buttons to zoom in/out.
+Press MMB or use R to reset zoom and image coordinates.`)
+		}
 	}
+}
+_we_image_drag_all :: proc(app: ^App, img_coord: [2]f32) {
+	we_img := &app.state.we_img
+	img_tl := img_coord - we_img.all_drag_adj
+	we_img.rx = clamp(f32(int(img_tl.x)), 0, f32(we_img.pixels.width) - we_img.rw)
+	we_img.ry = clamp(f32(int(img_tl.y)), 0, f32(we_img.pixels.height) - we_img.rh)
+	imgui.SetMouseCursor(.ResizeAll)
 }
 _we_image_drag_up :: proc(app: ^App, img_coord: [2]f32, use_shift: bool = true) {
 	we_img := &app.state.we_img

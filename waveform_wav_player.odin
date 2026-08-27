@@ -372,7 +372,7 @@ f_wav_player_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata:
 					sb := &window.id.(strings.Builder)
 					no_create: if imgui.MenuItem(cstring(&sb.buf[0])) {
 						if atomic_load_acq(&we_wav_state.thread_state.status) !=
-						   WavPlayerPlayStatus.Pause { //Because sync.Cond in .Pause
+						   WavPlayerPlayStatus.Pause { 	//Because sync.Cond in .Pause
 							atomic_store_rel(
 								&we_wav_state.thread_state.status,
 								WavPlayerPlayStatus.PrePause,
@@ -510,6 +510,13 @@ f_wav_player_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata:
 				app.state.import_wf_norm = !app.state.import_wf_norm
 			}
 		}
+		if imgui.BeginMenu("Help") {
+			defer imgui.EndMenu()
+			imgui.Text(
+				`The .wav Player can be used to extract waveforms
+from a .wav file to the waveform editor by changing the
+Begin Cursor and End Cursor and selecting a waveform editor window`,
+			)}
 	}
 	//After zoom in or out
 	samples_per_window = SAMPLE_RATE * we_wav_state.scale
@@ -822,12 +829,7 @@ _wav_player_keybinds :: proc(base: ^ImGuiWindow, app: ^App, win_tl, content_size
 		strings.write_string(&sb, "Reset Zoom: ")
 		fmt.sbprintf(&sb, "{} samples", SAMPLE_RATE)
 		strings.write_byte(&sb, 0)
-		tooltip_change(
-			app,
-			sb,
-			.Info,
-			app.state.frames + 2000 / u64(app.config.mspf),
-		)
+		tooltip_change(app, sb, .Info, app.state.frames + 2000 / u64(app.config.mspf))
 	}
 	if imgui.IsKeyPressed(.I, false) || mw > 0 {
 		old_scale := we_wav_state.scale
@@ -843,12 +845,7 @@ _wav_player_keybinds :: proc(base: ^ImGuiWindow, app: ^App, win_tl, content_size
 			strings.write_string(&sb, "Zoom In: ")
 			fmt.sbprintf(&sb, "%.f samples", we_wav_state.scale * SAMPLE_RATE)
 			strings.write_byte(&sb, 0)
-			tooltip_change(
-				app,
-				sb,
-				.Info,
-				app.state.frames + 2000 / u64(app.config.mspf),
-			)
+			tooltip_change(app, sb, .Info, app.state.frames + 2000 / u64(app.config.mspf))
 		}
 	}
 	if imgui.IsKeyPressed(.O, false) || mw < 0 {
@@ -865,12 +862,7 @@ _wav_player_keybinds :: proc(base: ^ImGuiWindow, app: ^App, win_tl, content_size
 			strings.write_string(&sb, "Zoom Out: ")
 			fmt.sbprintf(&sb, "%.f samples", we_wav_state.scale * SAMPLE_RATE)
 			strings.write_byte(&sb, 0)
-			tooltip_change(
-				app,
-				sb,
-				.Info,
-				app.state.frames + 2000 / u64(app.config.mspf),
-			)
+			tooltip_change(app, sb, .Info, app.state.frames + 2000 / u64(app.config.mspf))
 		}
 	}
 }
