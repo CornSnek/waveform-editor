@@ -696,6 +696,8 @@ f_fex_load_audio_dir :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userda
 	sync.mutex_guard(&wp_mutex)
 	we_state.num_points = MAX_WAVEFORM_EDITOR_POINTS
 	sync.mutex_unlock(&wp_mutex)
+	set_frames(app, file_explorer_load_idx, 1)
+	we_state.num_frames = 1
 	set_read_samples: u64 = MAX_WAVEFORM_EDITOR_POINTS
 	for frame in 0 ..< MAX_WAVEFORM_FRAMES {
 		wav_file := fmt.tprintf(FILE_EXPLORER_WRITE_WAV_MULTI_STR, full_dir_str, frame)
@@ -732,6 +734,7 @@ f_fex_load_audio_dir :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userda
 		}
 		set_read_samples = samples_read
 	}
+	waveform_editor_rename(app, win_idx, full_dir_str)
 }
 refresh_dir_or_root :: proc(app: ^App) {
 	new_pf, ok := path_files_new(get_edit_path_dir())

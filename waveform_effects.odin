@@ -1,5 +1,6 @@
 package waveform_editor
 //Shared with waveform_editor.odin and waveform_lua_functions.odin
+import "core:c"
 import "core:math"
 import "core:mem"
 import "core:sync"
@@ -15,6 +16,8 @@ effect_none :: proc(_: ^App, _: int) {}
 LuaPresetChoose :: enum lua.Integer {
 	empty,
 	sine,
+	pulse_1_8th,
+	pulse_1_4th,
 	square,
 	sawtooth,
 	triangle,
@@ -45,6 +48,32 @@ preset_sine :: proc(app: ^App, win_idx: int, add_stop: bool = true) {
 	if add_stop do harmonics_update_model(app, win_idx)
 }
 
+preset_pulse_1_8th :: proc(app: ^App, win_idx: int, add_stop: bool = true) {
+	we_state := &app.state.we[win_idx]
+	if add_stop do undo_redo_manager_undo_add_stop(&we_state.undo_redo)
+	undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_idx, we_state.data_frame)
+	for i in 0 ..< we_state.num_points {
+		undo_redo_manager_undo_wedraw(&we_state.undo_redo, app, win_idx, i, we_state.data_frame)
+		we_state.data[data_index(we_state.data_frame, u32(i))] = f32(
+			i32(i >= we_state.num_points / 8) * -2 + 1,
+		)
+	}
+	if add_stop do harmonics_update_model(app, win_idx)
+}
+
+preset_pulse_1_4th :: proc(app: ^App, win_idx: int, add_stop: bool = true) {
+	we_state := &app.state.we[win_idx]
+	if add_stop do undo_redo_manager_undo_add_stop(&we_state.undo_redo)
+	undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_idx, we_state.data_frame)
+	for i in 0 ..< we_state.num_points {
+		undo_redo_manager_undo_wedraw(&we_state.undo_redo, app, win_idx, i, we_state.data_frame)
+		we_state.data[data_index(we_state.data_frame, u32(i))] = f32(
+			i32(i >= we_state.num_points / 4) * -2 + 1,
+		)
+	}
+	if add_stop do harmonics_update_model(app, win_idx)
+}
+
 preset_square :: proc(app: ^App, win_idx: int, add_stop: bool = true) {
 	we_state := &app.state.we[win_idx]
 	if add_stop do undo_redo_manager_undo_add_stop(&we_state.undo_redo)
@@ -52,7 +81,7 @@ preset_square :: proc(app: ^App, win_idx: int, add_stop: bool = true) {
 	for i in 0 ..< we_state.num_points {
 		undo_redo_manager_undo_wedraw(&we_state.undo_redo, app, win_idx, i, we_state.data_frame)
 		we_state.data[data_index(we_state.data_frame, u32(i))] = f32(
-			i8(i >= we_state.num_points / 2) * -2 + 1,
+			i32(i >= we_state.num_points / 2) * -2 + 1,
 		)
 	}
 	if add_stop do harmonics_update_model(app, win_idx)
@@ -97,6 +126,69 @@ preset_half_sine :: proc(app: ^App, win_idx: int, add_stop: bool = true) {
 	}
 	if add_stop do harmonics_update_model(app, win_idx)
 }
+
+lua_preset_table :: proc "c" (L: ^lua.State) -> c.int {
+	app := lua_get_app(L)
+	preset_value := LuaPresetChoose(lua.tointeger(L, 1))
+	table_len := lua.tointeger(L, 2)
+	lua.createtable(L, c.int(table_len), 0)
+	switch preset_value {
+	case .empty:
+		for i in 0 ..< table_len {
+			lua.pushnumber(L, 0)
+			lua.rawseti(L, -2, i + 1)
+		}
+	case .sine:
+		for i in 0 ..< table_len {
+			lua.pushnumber(L, lua.Number(math.sin_f64(2 * math.PI * f64(i) / f64(table_len))))
+			lua.rawseti(L, -2, i + 1)
+		}
+	case .pulse_1_4th:
+		for i in 0 ..< table_len {
+			lua.pushnumber(L, lua.Number(i64(i >= table_len / 4) * -2 + 1))
+			lua.rawseti(L, -2, i + 1)
+		}
+	case .square:
+		for i in 0 ..< table_len {
+			lua.pushnumber(L, lua.Number(i64(i >= table_len / 2) * -2 + 1))
+			lua.rawseti(L, -2, i + 1)
+		}
+	case .pulse_1_8th:
+		for i in 0 ..< table_len {
+			lua.pushnumber(L, lua.Number(i64(i >= table_len / 8) * -2 + 1))
+			lua.rawseti(L, -2, i + 1)
+		}
+	case .sawtooth:
+		for i in 0 ..< table_len {
+			n := f64(i) / f64(table_len) + 0.5
+			lua.pushnumber(L, lua.Number(2 * (n - math.floor(n)) - 1))
+			lua.rawseti(L, -2, i + 1)
+		}
+	case .triangle:
+		for i in 0 ..< table_len {
+			n := f64(i) / f64(table_len) + 0.25
+			lua.pushnumber(L, lua.Number(1 - 4 * math.abs(n - math.floor(n) - 0.5)))
+			lua.rawseti(L, -2, i + 1)
+		}
+	case .half_sine:
+		for i in 0 ..< table_len {
+			lua.pushnumber(
+				L,
+				lua.Number(
+					f64(new_range(math.sin_f64(math.PI * f64(i) / f64(table_len)), 0, 1, -1, 1)),
+				),
+			)
+			lua.rawseti(L, -2, i + 1)
+		}
+	case:
+		lua.L_error(L, "At argument#1, Invalid preset enum")
+	}
+	return 1
+}
+LUA_PRESET_TABLE_DESC :: `f(i:int, n:int) -> t:table
+Returns a table that contains values of a preset waveform of length n,
+where the preset names are in the table presets and contain the i value.
+Use 'print(presets)' to check the values.`
 
 //Effects
 

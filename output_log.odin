@@ -24,7 +24,7 @@ OutputLog :: struct {
 output_log_new :: proc() -> OutputLog {
 	return {show_info = true, show_warn = true, show_error = true, scroll_to_end = true}
 }
-output_log_print :: proc(
+output_log_printf :: proc(
 	self: ^OutputLog,
 	type: OutputLogMessageType,
 	loc: string,
@@ -40,6 +40,27 @@ output_log_print :: proc(
 	now := time.now()
 	next_msg^ = {
 		msg  = fmt.aprintf(fmt_str, ..args),
+		loc  = loc,
+		type = type,
+	}
+	_ = time.to_string_hms(now, next_msg.time[:])
+	self.head = (self.head + 1) % OUTPUT_LOG_MAX_MESSAGES
+}
+output_log_print :: proc(
+	self: ^OutputLog,
+	type: OutputLogMessageType,
+	loc: string,
+	str: string,
+) {
+	assert(type != .Uninit)
+	next_msg := &self.buf[self.head]
+	if next_msg.type != .Uninit {
+		output_log_message_destroy(next_msg)
+		self.tail = (self.tail + 1) % OUTPUT_LOG_MAX_MESSAGES
+	}
+	now := time.now()
+	next_msg^ = {
+		msg  = fmt.aprint(str),
 		loc  = loc,
 		type = type,
 	}
@@ -66,6 +87,7 @@ context_log_proc :: proc(
 		ol_type = .Error
 	}
 	output_log_print(&app.state.output_log, ol_type, "Log", text)
+	fmt.println(level, text)
 }
 
 output_log_destroy :: proc(self: ^OutputLog) {

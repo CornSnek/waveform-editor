@@ -80,7 +80,16 @@ lua_register_functions :: proc(L: ^lua.State) {
 	}
 	lua.pushcfunction(L, lua_apply_preset)
 	lua.setfield(L, -2, "apply")
+	lua.pushcfunction(L, lua_preset_table)
+	lua.setfield(L, -2, "table")
 	lua.setglobal(L, "presets")
+
+	lua.createtable(L, 0, c.int(len(lua_asdr_functions)))
+	for laf in lua_asdr_functions {
+		lua.pushcfunction(L, laf.ptr)
+		lua.setfield(L, -2, laf.lua_name)
+	}
+	lua.setglobal(L, "adsr")
 
 	lua.createtable(L, 0, c.int(len(lua_harmonics_functions)))
 	for lhf in lua_harmonics_functions {
@@ -209,262 +218,215 @@ LuaCustomFunction :: struct {
 	desc:          cstring,
 }
 
-//odinfmt: disable
-lua_math_functions :: [?]LuaCustomFunction{
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-		num := lua.tonumber(L, 1)
-		lua.pushnumber(L, abs(num))
-		return 1
-	}, lua_name = "abs", lua_full_path = "wemath.abs",
-		desc=`f(x:float) -> float
-Sets float values to positive x values`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-		num := lua.tonumber(L, 1)
-		lua.pushnumber(L, lua.Number(math.acos_f64(f64(num))))
-		return 1
-	}, lua_name = "acos", lua_full_path = "wemath.acos",
-		desc=`f(x:float) -> y:float
-Arc cosine where y is in radians`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-    	num := lua.tonumber(L, 1)
-    	lua.pushnumber(L, lua.Number(math.asin_f64(f64(num))))
-    	return 1
-    }, lua_name = "asin", lua_full_path = "wemath.asin",
-		desc=`f(x:float) -> y:float
-Arc sine where y is in radians`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-	num := lua.tonumber(L, 1)
-		lua.pushnumber(L, lua.Number(math.atan(f64(num))))
-    	return 1
-    }, lua_name = "atan", lua_full_path = "wemath.atan",
-		desc=`f(x:float) -> y:float
-Arc tangent where y is in radians`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-    	num := lua.tonumber(L, 1)
-    	num2 := lua.tonumber(L, 2)
-		lua.pushnumber(L, lua.Number(math.atan2_f64(f64(num), f64(num2))))
-    	return 1
-    }, lua_name = "atan2", lua_full_path = "wemath.atan2",
-		desc=`f(x:float, y:float) -> a:float
-Arc tangent using (x,y) coordinates where 0 degrees is (x:+,y:0) and +a is counter-clockwise`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-    	num := lua.tonumber(L, 1)
-		lua.pushnumber(L, lua.Number(math.ceil(f64(num))))
-    	return 1
-    }, lua_name = "ceil", lua_full_path = "wemath.ceil",
-		desc=`f(x:float) -> float
+
+lua_math_functions :: [?]LuaCustomFunction{{ptr = proc "c" (L: ^lua.State) -> c.int {
+			num := lua.tonumber(L, 1)
+			lua.pushnumber(L, abs(num))
+			return 1
+		}, lua_name = "abs", lua_full_path = "wemath.abs", desc = `f(x:float) -> float
+Sets float values to positive x values`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			num := lua.tonumber(L, 1)
+			lua.pushnumber(L, lua.Number(math.acos_f64(f64(num))))
+			return 1
+		}, lua_name = "acos", lua_full_path = "wemath.acos", desc = `f(x:float) -> y:float
+Arc cosine where y is in radians`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			num := lua.tonumber(L, 1)
+			lua.pushnumber(L, lua.Number(math.asin_f64(f64(num))))
+			return 1
+		}, lua_name = "asin", lua_full_path = "wemath.asin", desc = `f(x:float) -> y:float
+Arc sine where y is in radians`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			num := lua.tonumber(L, 1)
+			lua.pushnumber(L, lua.Number(math.atan(f64(num))))
+			return 1
+		}, lua_name = "atan", lua_full_path = "wemath.atan", desc = `f(x:float) -> y:float
+Arc tangent where y is in radians`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			num := lua.tonumber(L, 1)
+			num2 := lua.tonumber(L, 2)
+			lua.pushnumber(L, lua.Number(math.atan2_f64(f64(num), f64(num2))))
+			return 1
+		}, lua_name = "atan2", lua_full_path = "wemath.atan2", desc = `f(x:float, y:float) -> a:float
+Arc tangent using (x,y) coordinates where 0 degrees is (x:+,y:0) and +a is counter-clockwise`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			num := lua.tonumber(L, 1)
+			lua.pushnumber(L, lua.Number(math.ceil(f64(num))))
+			return 1
+		}, lua_name = "ceil", lua_full_path = "wemath.ceil", desc = `f(x:float) -> float
 Sets values of x with decimals to the next integer value
-Example: ceil(3.3) = 4, ceil(2) = 3`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-    	num := f64(lua.tonumber(L, 1))
-    	num2 := i32(lua.tointeger(L, 2))
-		lua.pushnumber(L, lua.Number(chebyshev_wavefold(num,num2)))
-    	return 1
-    }, lua_name = "chebyshev", lua_full_path = "wemath.chebyshev",
-		desc=`f(x:float, n:int) -> float
+Example: ceil(3.3) = 4, ceil(2) = 3`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			num := f64(lua.tonumber(L, 1))
+			num2 := i32(lua.tointeger(L, 2))
+			lua.pushnumber(L, lua.Number(chebyshev_wavefold(num, num2)))
+			return 1
+		}, lua_name = "chebyshev", lua_full_path = "wemath.chebyshev", desc = `f(x:float, n:int) -> float
 Uses chebyshev polynomials of the first kind where
-T_0(x) = 1, T_1(x) = x, T_n(x) = 2*x*T_{n-1}(x) - T_{n-2}(x)`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-		if lua.Type(lua.type(L, 1)) != .NUMBER {
-			lua.L_error(L,"For argument #1, a number is required")
-		}
-		lua.pushvalue(L, 1)
-		lua.pushcclosure(L, _lua_chebyshev_closure, 1)
-    	return 1
-    }, lua_name = "chebyshev_cl", lua_full_path = "wemath.chebyshev_cl",
-		desc=`f(n:int) -> (f(x:float) -> float)
-Returns a closure function T_n describing chebyshev polynomials of the first kind. See wemath.chebyshev for the function`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-    	num := lua.tonumber(L, 1)
-    	num2 := lua.tonumber(L, 2)
-    	num3 := lua.tonumber(L, 3)
-    	lua.pushnumber(L, clamp(num, num2, num3))
-    	return 1
-    }, lua_name = "clamp", lua_full_path = "wemath.clamp",
-		desc=`f(x:float, a:float, b:float) -> float
-Returns x values between [a,b] only`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-    	num := lua.tonumber(L, 1)
-    	lua.pushnumber(L, lua.Number(math.cos_f64(f64(num))))
-    	return 1
-    }, lua_name = "cos", lua_full_path = "wemath.sin",
-		desc=`f(x:float) -> float
-Cosine where x is in radians`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-    	num := lua.tonumber(L, 1)
-		lua.pushnumber(L, lua.Number(math.to_degrees_f64(f64(num))))
-    	return 1
-    }, lua_name = "deg", lua_full_path = "wemath.deg",
-		desc=`f(x:float) -> float
-Returns radian values to degree values`,
-	},
-	{ptr = proc "c" (L: ^lua.State) -> c.int {
-    	x: f64 = f64(lua.tonumber(L, 1))
-		n := math.round(x/2)
-    	lua.pushnumber(L, lua.Number(math.pow_f64(-1, n) * (x - 2 * n)))
-    	return 1
-    }, lua_name = "fold", lua_full_path = "wemath.fold",
-		desc=`f(x:float) -> float
+T_0(x) = 1, T_1(x) = x, T_n(x) = 2*x*T_{n-1}(x) - T_{n-2}(x)`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			if lua.Type(lua.type(L, 1)) != .NUMBER {
+				lua.L_error(L, "For argument #1, a number is required")
+			}
+			lua.pushvalue(L, 1)
+			lua.pushcclosure(L, _lua_chebyshev_closure, 1)
+			return 1
+		}, lua_name = "chebyshev_cl", lua_full_path = "wemath.chebyshev_cl", desc = `f(n:int) -> (f(x:float) -> float)
+Returns a closure function T_n describing chebyshev polynomials of the first kind. See wemath.chebyshev for the function`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			num := lua.tonumber(L, 1)
+			num2 := lua.tonumber(L, 2)
+			num3 := lua.tonumber(L, 3)
+			lua.pushnumber(L, clamp(num, num2, num3))
+			return 1
+		}, lua_name = "clamp", lua_full_path = "wemath.clamp", desc = `f(x:float, a:float, b:float) -> float
+Returns x values between [a,b] only`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			num := lua.tonumber(L, 1)
+			lua.pushnumber(L, lua.Number(math.cos_f64(f64(num))))
+			return 1
+		}, lua_name = "cos", lua_full_path = "wemath.sin", desc = `f(x:float) -> float
+Cosine where x is in radians`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			num := lua.tonumber(L, 1)
+			lua.pushnumber(L, lua.Number(math.to_degrees_f64(f64(num))))
+			return 1
+		}, lua_name = "deg", lua_full_path = "wemath.deg", desc = `f(x:float) -> float
+Returns radian values to degree values`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			x: f64 = f64(lua.tonumber(L, 1))
+			n := math.round(x / 2)
+			lua.pushnumber(L, lua.Number(math.pow_f64(-1, n) * (x - 2 * n)))
+			return 1
+		}, lua_name = "fold", lua_full_path = "wemath.fold", desc = `f(x:float) -> float
 Uses f(x) = pow(-1,n) * (x - 2*n), n = round(x/2)
-This describes the triangle fold.`,
-	},
-	{ptr = proc "c" (L: ^lua.State) -> c.int {
-    	x: f64 = f64(lua.tonumber(L, 1))
-		b := math.is_inf_f32(f32(x),0)
-		lua.pushboolean(L, b32(b))
-    	return 1
-    }, lua_name = "isinf", lua_full_path = "wemath.isinf",
-		desc=`f(x:float) -> float
+This describes the triangle fold.`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			x: f64 = f64(lua.tonumber(L, 1))
+			b := math.is_inf_f32(f32(x), 0)
+			lua.pushboolean(L, b32(b))
+			return 1
+		}, lua_name = "isinf", lua_full_path = "wemath.isinf", desc = `f(x:float) -> float
 Checks if x value is infinity (by f32).
-Lua uses f64 for float, but the data outside Lua uses f32`,
-	},
-	{ptr = proc "c" (L: ^lua.State) -> c.int {
-    	x: f64 = f64(lua.tonumber(L, 1))
-		lua.pushboolean(L, x!=x)
-    	return 1
-    }, lua_name = "isnan", lua_full_path = "wemath.isnan",
-		desc=`f(x:float) -> float
-Checks if x value is nan by checking if x != x`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-    	num := lua.tonumber(L, 1)
-    	num2 := lua.tonumber(L, 2)
-    	num3 := lua.tonumber(L, 3)
-    	lua.pushnumber(L, math.lerp(num, num2, num3))
-    	return 1
-    }, lua_name = "lerp", lua_full_path = "wemath.lerp",
-		desc=`f(a:float, b:float, x:float) -> float
-For x between [0,1] returns between [a,b]`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-    	num := lua.tonumber(L, 1)
-    	num2 := lua.tonumber(L, 2)
-		lua.pushnumber(L, lua.Number(math.log_f64(f64(num), f64(num2))))
-    	return 1
-    }, lua_name = "log", lua_full_path = "wemath.log",
-		desc=`f(x:float, b:float) -> float
-returns logarithmic values of base b`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-    	n := lua.gettop(L)
-    	res: lua.Number = ---
-    		res = lua.Number(math.inf_f64(-1))
-    	for i in 1 ..= n {
-    		res = max(res, lua.tonumber(L, i))
-    	}
-    	lua.pushnumber(L, res)
-    	return 1
-    }, lua_name = "max", lua_full_path = "wemath.max",
-		desc=`f(..args:float) -> float
-Returns the maximum value between variadic number of arguments`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-    	n := lua.gettop(L)
-    	res: lua.Number = ---
-    		res = lua.Number(math.inf_f64(1))
-    	for i in 1 ..= n {
-    		res = min(res, lua.tonumber(L, i))
-    	}
-    	lua.pushnumber(L, res)
-    	return 1
-    }, lua_name = "min", lua_full_path = "wemath.min",
-		desc=`f(..args:float) -> float
-Returns the minimum value between variadic number of arguments`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-    	num := lua.tonumber(L, 1)
-		int_f, rem := math.modf_f64(f64(num))
-		lua.pushnumber(L, lua.Number(int_f))
-		lua.pushnumber(L, lua.Number(rem))
-    	return 2
-    }, lua_name ="modf", lua_full_path = "wemath.modf",
-		desc=`f(x:float) -> float
-Returns degree values to radian values`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-    	num := lua.tonumber(L, 1)
-		lua.pushnumber(L, lua.Number(math.to_radians_f64(f64(num))))
-    	return 1
-    }, lua_name = "rad", lua_full_path = "wemath.rad",
-		desc=`f(x:float) -> (r:float)
-Returns values of x with an integer float i and decimal float r`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-    	num := lua.tonumber(L, 1)
-    	num2 := lua.tonumber(L, 2)
-		lua.pushnumber(L, lua.Number(math.pow_f64(f64(num), f64(num2))))
-    	return 1
-    }, lua_name = "pow", lua_full_path = "wemath.pow",
-		desc=`f(x:float, b:float) -> float
-Returns x raised to the power of b (b^x)`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-    	num := lua.tonumber(L, 1)
-    	num2 := lua.tonumber(L, 2)
-    	num3 := lua.tonumber(L, 3)
-    	num4 := lua.tonumber(L, 4)
-    	num5 := lua.tonumber(L, 5)
-		lua.pushnumber(
-			L,
-			lua.Number(new_range(f64(num), f64(num2), f64(num3), f64(num4), f64(num5))),
-		)
-    	return 1
-    }, lua_name = "remap", lua_full_path = "wemath.remap",
-		desc=`f(x:float, a:float, b:float, c:float, d:float) -> y:float
+Lua uses f64 for float, but the data outside Lua uses f32`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			x: f64 = f64(lua.tonumber(L, 1))
+			lua.pushboolean(L, x != x)
+			return 1
+		}, lua_name = "isnan", lua_full_path = "wemath.isnan", desc = `f(x:float) -> float
+Checks if x value is nan by checking if x != x`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			num := lua.tonumber(L, 1)
+			num2 := lua.tonumber(L, 2)
+			num3 := lua.tonumber(L, 3)
+			lua.pushnumber(L, math.lerp(num, num2, num3))
+			return 1
+		}, lua_name = "lerp", lua_full_path = "wemath.lerp", desc = `f(a:float, b:float, x:float) -> float
+For x between [0,1] returns between [a,b]`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			num := lua.tonumber(L, 1)
+			num2 := lua.tonumber(L, 2)
+			lua.pushnumber(L, lua.Number(math.log_f64(f64(num), f64(num2))))
+			return 1
+		}, lua_name = "log", lua_full_path = "wemath.log", desc = `f(x:float, b:float) -> float
+returns logarithmic values of base b`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			n := lua.gettop(L)
+			res: lua.Number = ---
+			res = lua.Number(math.inf_f64(-1))
+			for i in 1 ..= n {
+				res = max(res, lua.tonumber(L, i))
+			}
+			lua.pushnumber(L, res)
+			return 1
+		}, lua_name = "max", lua_full_path = "wemath.max", desc = `f(..args:float) -> float
+Returns the maximum value between variadic number of arguments`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			n := lua.gettop(L)
+			res: lua.Number = ---
+			res = lua.Number(math.inf_f64(1))
+			for i in 1 ..= n {
+				res = min(res, lua.tonumber(L, i))
+			}
+			lua.pushnumber(L, res)
+			return 1
+		}, lua_name = "min", lua_full_path = "wemath.min", desc = `f(..args:float) -> float
+Returns the minimum value between variadic number of arguments`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			num := lua.tonumber(L, 1)
+			int_f, rem := math.modf_f64(f64(num))
+			lua.pushnumber(L, lua.Number(int_f))
+			lua.pushnumber(L, lua.Number(rem))
+			return 2
+		}, lua_name = "modf", lua_full_path = "wemath.modf", desc = `f(x:float) -> float
+Returns degree values to radian values`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			num := lua.tonumber(L, 1)
+			lua.pushnumber(L, lua.Number(math.to_radians_f64(f64(num))))
+			return 1
+		}, lua_name = "rad", lua_full_path = "wemath.rad", desc = `f(x:float) -> (r:float)
+Returns values of x with an integer float i and decimal float r`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			num_args := lua.gettop(L)
+			if num_args < 4 {
+				lua.L_error(L, "This function requires at least 4 arguments.")
+			}
+			if lua.Type(lua.type(L, 1)) != .TABLE {
+				lua.L_error(L, "Argument #1 must be a modulator table")
+			}
+			table_len: u64 = u64(lua.rawlen(L, 1))
+			p: f64 = f64(lua.tonumber(L, 2))
+			fr: f64 = f64(lua.tonumber(L, 3))
+			mi: f64 = f64(lua.tonumber(L, 4))
+			fb: f64 = f64(lua.tonumber(L, 5))
+			fb_prev: f64 = 0
+			lua.createtable(L, c.int(table_len), 0)
+			for i in 1 ..= table_len {
+				lua.rawgeti(L, 1, lua.Integer(i))
+				defer lua.pop(L, 1)
+				v: f64 = f64(lua.tonumber(L, -1))
+				v = math.sin(2 * math.PI * p + mi * v + fb * fb_prev)
+				fb_prev = v
+				p = math.mod(1 / f64(table_len) * fr + p, 1)
+				lua.pushnumber(L, lua.Number(v))
+				lua.rawseti(L, -3, lua.Integer(i))
+			}
+			lua.pushnumber(L, lua.Number(p))
+			return 2
+		}, lua_name = "pm", lua_full_path = "wemath.pm", desc = `f(mod_t: table, p: float, fr: float, mi: float, fb: float) -> new_t: table, new_p: float
+where mod_t and new_t are type [int] = float
+This function creates a table new_t that is the phase modulation of the modulator table mod_t and a carrier sine wave
+p = phase ratio of the carrier sine wave [0, 1), new_p = new phase ratio
+fr = ratio frequency of carrier/modulator table_length
+mi = modulator index
+
+Full formula for k = [1, #mod_t], new_t[k] = sin(2 * pi * _p + mi * mod_t[k] + fb * new_t[k - 1])
+where for every k, _p is incremented by (1/#mod_t * fr + _p) % 1 and new_t[0] = 0`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			num := lua.tonumber(L, 1)
+			num2 := lua.tonumber(L, 2)
+			lua.pushnumber(L, lua.Number(math.pow_f64(f64(num), f64(num2))))
+			return 1
+		}, lua_name = "pow", lua_full_path = "wemath.pow", desc = `f(x:float, b:float) -> float
+Returns x raised to the power of b (b^x)`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			num := lua.tonumber(L, 1)
+			num2 := lua.tonumber(L, 2)
+			num3 := lua.tonumber(L, 3)
+			num4 := lua.tonumber(L, 4)
+			num5 := lua.tonumber(L, 5)
+			lua.pushnumber(
+				L,
+				lua.Number(new_range(f64(num), f64(num2), f64(num3), f64(num4), f64(num5))),
+			)
+			return 1
+		}, lua_name = "remap", lua_full_path = "wemath.remap", desc = `f(x:float, a:float, b:float, c:float, d:float) -> y:float
 Linearly transforms x from an old range [a,b] to a y-value of the new range [c,d]
-Note: This is an affine map 2x2 transformation described as [y,1]^T = [[(d-c)/(b-a), (b*c-a*d)/(b-a)],[0,1]] * [x,1]^T`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-    	num := lua.tonumber(L, 1)
-    	lua.pushnumber(L, lua.Number(math.round_f64(f64(num))))
-    	return 1
-    }, lua_name = "round", lua_full_path = "wemath.round",
-		desc=`f(x:float) -> v:float
-For x values with decimal >= 0.5, returns the next integer. Otherwise, returns the last integer value.`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-    	num := lua.tonumber(L, 1)
-    	lua.pushnumber(L, lua.Number(math.sign_f64(f64(num))))
-    	return 1
-    }, lua_name = "sgn", lua_full_path = "wemath.sgn",
-		desc=`f(x:float) -> s:float
-Returns 1 if x is positive or -1 if negative`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-    	num := lua.tonumber(L, 1)
-    	lua.pushnumber(L, lua.Number(math.sin_f64(f64(num))))
-    	return 1
-    }, lua_name = "sin", lua_full_path = "wemath.sin",
-		desc=`f(x:float) -> float
-Sine where x is in radians`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-    	num := lua.tonumber(L, 1)
-    	lua.pushnumber(L, lua.Number(math.sqrt_f64(f64(num))))
-    	return 1
-    }, lua_name = "sqrt", lua_full_path = "wemath.sqrt",
-		desc=`f(x:float) -> float
-Returns square root of x where negative values return NaN`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-    	num := lua.tonumber(L, 1)
-    	lua.pushnumber(L, lua.Number(math.tan_f64(f64(num))))
-    	return 1
-    }, lua_name = "tan", lua_full_path = "wemath.tan",
-		desc=`f(x:float) -> float
-Tangent where x is in radians`,
-	},
-}//odinfmt: enable
+Note: This is an affine map 2x2 transformation described as [y,1]^T = [[(d-c)/(b-a), (b*c-a*d)/(b-a)],[0,1]] * [x,1]^T`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			num := lua.tonumber(L, 1)
+			lua.pushnumber(L, lua.Number(math.round_f64(f64(num))))
+			return 1
+		}, lua_name = "round", lua_full_path = "wemath.round", desc = `f(x:float) -> v:float
+For x values with decimal >= 0.5, returns the next integer. Otherwise, returns the last integer value.`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			num := lua.tonumber(L, 1)
+			lua.pushnumber(L, lua.Number(math.sign_f64(f64(num))))
+			return 1
+		}, lua_name = "sgn", lua_full_path = "wemath.sgn", desc = `f(x:float) -> s:float
+Returns 1 if x is positive or -1 if negative`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			num := lua.tonumber(L, 1)
+			lua.pushnumber(L, lua.Number(math.sin_f64(f64(num))))
+			return 1
+		}, lua_name = "sin", lua_full_path = "wemath.sin", desc = `f(x:float) -> float
+Sine where x is in radians`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			num := lua.tonumber(L, 1)
+			lua.pushnumber(L, lua.Number(math.sqrt_f64(f64(num))))
+			return 1
+		}, lua_name = "sqrt", lua_full_path = "wemath.sqrt", desc = `f(x:float) -> float
+Returns square root of x where negative values return NaN`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			num := lua.tonumber(L, 1)
+			lua.pushnumber(L, lua.Number(math.tan_f64(f64(num))))
+			return 1
+		}, lua_name = "tan", lua_full_path = "wemath.tan", desc = `f(x:float) -> float
+Tangent where x is in radians`}}
 
 _lua_chebyshev_closure :: proc "c" (L: ^lua.State) -> c.int {
 	n := i32(lua.tointeger(L, lua.REGISTRYINDEX - 1))
@@ -516,254 +478,274 @@ W_AND_F_PARAMETER :: `
 f is frame index and w is window index.
 Not using f or w uses the current frame or window.`
 
-//odinfmt: disable
-lua_waveform_effects :: [?]LuaCustomFunction{
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		win_i: int
-		switch lua.gettop(L) {
-		case 0:
-			win_i = app.state.lua_win_idx
-		case:
-			win_i = int(lua.tointeger(L, 1))
-			_lua_check_window(L, 1, app, win_i)
-			win_i -= 1
-		}
-		we_state := &app.state.we[win_i]
-		effect_nan_to_0_full(app, win_i, false)
-		return 0
-	}, lua_name = "nan_to_0", lua_full_path = "effects.nan_to_0",
-		desc=`f(), or f(w:int)
+
+lua_waveform_effects :: [?]LuaCustomFunction{{ptr = proc "c" (L: ^lua.State) -> c.int {
+			context = app_context
+			app := lua_get_app(L)
+			win_i: int
+			switch lua.gettop(L) {
+			case 0:
+				win_i = app.state.lua_win_idx
+			case:
+				win_i = int(lua.tointeger(L, 1))
+				_lua_check_window(L, 1, app, win_i)
+				win_i -= 1
+			}
+			we_state := &app.state.we[win_i]
+			effect_nan_to_0_full(app, win_i, false)
+			return 0
+		}, lua_name = "nan_to_0", lua_full_path = "effects.nan_to_0", desc = `f(), or f(w:int)
 Uses the NaN to 0 Effect.
 Note: This effect affects all frames in window index w.
-No w uses the current window.`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		gain_v:f32 = f32(lua.tonumber(L, 1))
-		_lua_waveform_check_clamp_or_error(L, 1, gain_v, effect_gain_clamp.min, effect_gain_clamp.max)
-		frame, win_i := _lua_check_frame_window(L, app, 1)
-		we_state := &app.state.we[win_i]
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		effect_gain_full(app, win_i, gain_v, false)
-		return 0
-	}, lua_name = "gain", lua_full_path = "effects.gain",
-		desc=`f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
-Uses the Gain Effect with threshold x.` + W_AND_F_PARAMETER,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		normal_v:f32 = f32(lua.tonumber(L, 1))
-		_lua_waveform_check_clamp_or_error(L, 1, normal_v, effect_normalization_clamp.min, effect_normalization_clamp.max)
-		frame, win_i := _lua_check_frame_window(L, app, 1)
-		we_state := &app.state.we[win_i]
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		effect_normalization_full(app, win_i, normal_v, false)
-		return 0
-	}, lua_name = "normalization", lua_full_path = "effects.normalization",
-		desc=`f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
-Uses the Normalization Effect with threshold x.` + W_AND_F_PARAMETER,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		ch_phase_v:i32 = i32(lua.tointeger(L, 1))
-		frame, win_i := _lua_check_frame_window(L, app, 1)
-		we_state := &app.state.we[win_i]
-		clamp := effect_change_phase_clamp(we_state)
-		_lua_waveform_check_clamp_or_error(L, 1, ch_phase_v, clamp.min, clamp.max)
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		effect_change_phase_full(app, win_i, ch_phase_v, false)
-		return 0
-	}, lua_name = "change_phase", lua_full_path = "effects.change_phase",
-		desc=`f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
-Uses the Phase Shift Effect with threshold x.` + W_AND_F_PARAMETER,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		comb_m_v:f32 = f32(lua.tonumber(L, 1))
-		_lua_waveform_check_clamp_or_error(L, 1, comb_m_v, effect_comb_fff_clamp_m.min, effect_comb_fff_clamp_m.max)
-		comb_n_v:i32 = i32(lua.tointeger(L, 2))
-		_lua_waveform_check_clamp_or_error(L, 2, comb_n_v, effect_comb_fff_clamp_n.min, effect_comb_fff_clamp_n.max)
-		frame, win_i := _lua_check_frame_window(L, app, 2)
-		we_state := &app.state.we[win_i]
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		effect_comb_filter_feed_forward_full(app, win_i, comb_m_v, comb_n_v, false)
-		return 0
-	}, lua_name = "comb_feed_forward", lua_full_path = "effects.comb_feed_forward",
-		desc=`f(m:float, n:int), f(m:float, n:int, f:int), or f(m:float, n:int, w:int, f:int)
-Uses the Comb Filter Effect with thresholds m and n.` + W_AND_F_PARAMETER,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		frame, win_i := _lua_check_frame_window(L, app, 0)
-		we_state := &app.state.we[win_i]
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		effect_inversion_full(app, win_i, false)
-		return 0
-	}, lua_name = "inversion", lua_full_path = "effects.inversion",
-		desc=`f(), f(f:int), or f(w:int, f:int)
-Uses the Inversion Effect.` + W_AND_F_PARAMETER,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		frame, win_i := _lua_check_frame_window(L, app, 0)
-		we_state := &app.state.we[win_i]
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		effect_fuzz_full(app, win_i, false)
-		return 0
-	}, lua_name = "fuzz", lua_full_path = "effects.fuzz",
-		desc=`f(), f(f:int), or f(w:int, f:int)
-Uses the Fuzz Effect.` + W_AND_F_PARAMETER,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		hard_clip_v:f32 = f32(lua.tonumber(L, 1))
-		_lua_waveform_check_clamp_or_error(L, 1, hard_clip_v, effect_hard_clip_clamp.min, effect_hard_clip_clamp.max)
-		frame, win_i := _lua_check_frame_window(L, app, 1)
-		we_state := &app.state.we[win_i]
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		effect_hard_clip_full(app, win_i, hard_clip_v, false)
-		return 0
-	}, lua_name = "hard_clip", lua_full_path = "effects.hard_clip",
-		desc=`f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
-Uses the Hard Clip Effect with threshold x.` + W_AND_F_PARAMETER,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		soft_clip_v:f32 = f32(lua.tonumber(L, 1))
-		_lua_waveform_check_clamp_or_error(L, 1, soft_clip_v, effect_soft_clip_clamp.min, effect_soft_clip_clamp.max)
-		frame, win_i := _lua_check_frame_window(L, app, 1)
-		we_state := &app.state.we[win_i]
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		effect_soft_clip_full(app, win_i, soft_clip_v, false)
-		return 0
-	}, lua_name = "soft_clip", lua_full_path = "effects.soft_clip",
-		desc=`f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
-Uses the Soft Clip Effect with threshold x.` + W_AND_F_PARAMETER,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		bitcrush_v:i32 = i32(lua.tointeger(L, 1))
-		_lua_waveform_check_clamp_or_error(L, 1, bitcrush_v, effect_bit_crusher_clamp.min+1, effect_bit_crusher_clamp.max+1)
-		frame, win_i := _lua_check_frame_window(L, app, 1)
-		we_state := &app.state.we[win_i]
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		effect_bit_crusher_full(app, win_i, WaveformBitcrush(bitcrush_v-1), false)
-		return 0
-	}, lua_name = "bit_crusher", lua_full_path = "effects.bit_crusher",
-		desc=`f(x:int), f(x:int, f:int), or f(x:int, w:int, f:int)
-Uses the Bitcrusher Effect with x describing bits from [1,8].` + W_AND_F_PARAMETER,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		wavefold_v:f32 = f32(lua.tonumber(L, 1))
-		_lua_waveform_check_clamp_or_error(L, 1, wavefold_v, effect_triangle_folding_clamp.min, effect_triangle_folding_clamp.max)
-		frame, win_i := _lua_check_frame_window(L, app, 1)
-		we_state := &app.state.we[win_i]
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		effect_triangle_folding_full(app, win_i, wavefold_v, false)
-		return 0
-	}, lua_name = "triangle_fold", lua_full_path = "effects.triangle_fold",
-		desc=`f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
-Uses the Triangle Folding Effect with threshold x.` + W_AND_F_PARAMETER,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		cheb_n_v:f32 = f32(lua.tonumber(L, 1))
-		frame, win_i := _lua_check_frame_window(L, app, 1)
-		we_state := &app.state.we[win_i]
-		clamp := effect_chebyshev_folding_clamp(we_state.num_points)
-		_lua_waveform_check_clamp_or_error(L, 1, cheb_n_v, clamp.min, clamp.max)
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		effect_chebyshev_folding_full(app, win_i, cheb_n_v, false)
-		return 0
-	}, lua_name = "chebyshev_fold", lua_full_path = "effects.chebyshev_fold",
-		desc=`f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
-Uses the Chebyshev Polynomial Effect with threshold x.` + W_AND_F_PARAMETER,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		overtone_v:i32 = i32(lua.tointeger(L, 1))
-		_lua_waveform_check_clamp_or_error(L, 1, overtone_v, effect_n_overtone_clamp.min, effect_n_overtone_clamp.max)
-		frame, win_i := _lua_check_frame_window(L, app, 1)
-		we_state := &app.state.we[win_i]
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		effect_n_overtone_full(app, win_i, overtone_v, false)
-		return 0
-	}, lua_name = "n_overtone", lua_full_path = "effects.n_overtone",
-		desc=`f(x:int), f(x:int, f:int), or f(x:int, w:int, f:int)
-Uses the As N Overtone Effect with threshold x.` + W_AND_F_PARAMETER,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		n_samp_v:i32 = i32(lua.tointeger(L, 1))
-		_lua_waveform_check_clamp_or_error(L, 1, n_samp_v, effect_resampling_clamp.min, effect_resampling_clamp.max)
-		win_i := int(lua.tointeger(L, 2))
-		_lua_check_window(L, 2, app, win_i)
-		win_i -= 1
-		we_state := &app.state.we[win_i]
-		n_samp_interp_str: cstring = lua.tostring(L,3)
-		n_samp_interp: InterpolationType = ---
-		switch(n_samp_interp_str) {
-		case "None":
-			n_samp_interp = .None
-		case "Linear":
-			n_samp_interp = .Linear
-		case "Cubic":
-			n_samp_interp = .Cubic
-		case:
-			n_samp_interp = .None
-		}
-		effect_resampling_full(app, win_i, n_samp_v, n_samp_interp, false)
-		return 0
-	}, lua_name = "resampling", lua_full_path = "effects.resampling",
-		desc=`f(x:string), or f(x:string, w:int)
+No w uses the current window.`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			context = app_context
+			app := lua_get_app(L)
+			gain_v: f32 = f32(lua.tonumber(L, 1))
+			_lua_waveform_check_clamp_or_error(
+				L,
+				1,
+				gain_v,
+				effect_gain_clamp.min,
+				effect_gain_clamp.max,
+			)
+			frame, win_i := _lua_check_frame_window(L, app, 1)
+			we_state := &app.state.we[win_i]
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			effect_gain_full(app, win_i, gain_v, false)
+			return 0
+		}, lua_name = "gain", lua_full_path = "effects.gain", desc = `f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
+Uses the Gain Effect with threshold x.` + W_AND_F_PARAMETER}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			context = app_context
+			app := lua_get_app(L)
+			normal_v: f32 = f32(lua.tonumber(L, 1))
+			_lua_waveform_check_clamp_or_error(
+				L,
+				1,
+				normal_v,
+				effect_normalization_clamp.min,
+				effect_normalization_clamp.max,
+			)
+			frame, win_i := _lua_check_frame_window(L, app, 1)
+			we_state := &app.state.we[win_i]
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			effect_normalization_full(app, win_i, normal_v, false)
+			return 0
+		}, lua_name = "normalization", lua_full_path = "effects.normalization", desc = `f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
+Uses the Normalization Effect with threshold x.` + W_AND_F_PARAMETER}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			context = app_context
+			app := lua_get_app(L)
+			ch_phase_v: i32 = i32(lua.tointeger(L, 1))
+			frame, win_i := _lua_check_frame_window(L, app, 1)
+			we_state := &app.state.we[win_i]
+			clamp := effect_change_phase_clamp(we_state)
+			_lua_waveform_check_clamp_or_error(L, 1, ch_phase_v, clamp.min, clamp.max)
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			effect_change_phase_full(app, win_i, ch_phase_v, false)
+			return 0
+		}, lua_name = "change_phase", lua_full_path = "effects.change_phase", desc = `f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
+Uses the Phase Shift Effect with threshold x.` + W_AND_F_PARAMETER}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			context = app_context
+			app := lua_get_app(L)
+			comb_m_v: f32 = f32(lua.tonumber(L, 1))
+			_lua_waveform_check_clamp_or_error(
+				L,
+				1,
+				comb_m_v,
+				effect_comb_fff_clamp_m.min,
+				effect_comb_fff_clamp_m.max,
+			)
+			comb_n_v: i32 = i32(lua.tointeger(L, 2))
+			_lua_waveform_check_clamp_or_error(
+				L,
+				2,
+				comb_n_v,
+				effect_comb_fff_clamp_n.min,
+				effect_comb_fff_clamp_n.max,
+			)
+			frame, win_i := _lua_check_frame_window(L, app, 2)
+			we_state := &app.state.we[win_i]
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			effect_comb_filter_feed_forward_full(app, win_i, comb_m_v, comb_n_v, false)
+			return 0
+		}, lua_name = "comb_feed_forward", lua_full_path = "effects.comb_feed_forward", desc = `f(m:float, n:int), f(m:float, n:int, f:int), or f(m:float, n:int, w:int, f:int)
+Uses the Comb Filter Effect with thresholds m and n.` + W_AND_F_PARAMETER}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			context = app_context
+			app := lua_get_app(L)
+			frame, win_i := _lua_check_frame_window(L, app, 0)
+			we_state := &app.state.we[win_i]
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			effect_inversion_full(app, win_i, false)
+			return 0
+		}, lua_name = "inversion", lua_full_path = "effects.inversion", desc = `f(), f(f:int), or f(w:int, f:int)
+Uses the Inversion Effect.` + W_AND_F_PARAMETER}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			context = app_context
+			app := lua_get_app(L)
+			frame, win_i := _lua_check_frame_window(L, app, 0)
+			we_state := &app.state.we[win_i]
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			effect_fuzz_full(app, win_i, false)
+			return 0
+		}, lua_name = "fuzz", lua_full_path = "effects.fuzz", desc = `f(), f(f:int), or f(w:int, f:int)
+Uses the Fuzz Effect.` + W_AND_F_PARAMETER}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			context = app_context
+			app := lua_get_app(L)
+			hard_clip_v: f32 = f32(lua.tonumber(L, 1))
+			_lua_waveform_check_clamp_or_error(
+				L,
+				1,
+				hard_clip_v,
+				effect_hard_clip_clamp.min,
+				effect_hard_clip_clamp.max,
+			)
+			frame, win_i := _lua_check_frame_window(L, app, 1)
+			we_state := &app.state.we[win_i]
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			effect_hard_clip_full(app, win_i, hard_clip_v, false)
+			return 0
+		}, lua_name = "hard_clip", lua_full_path = "effects.hard_clip", desc = `f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
+Uses the Hard Clip Effect with threshold x.` + W_AND_F_PARAMETER}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			context = app_context
+			app := lua_get_app(L)
+			soft_clip_v: f32 = f32(lua.tonumber(L, 1))
+			_lua_waveform_check_clamp_or_error(
+				L,
+				1,
+				soft_clip_v,
+				effect_soft_clip_clamp.min,
+				effect_soft_clip_clamp.max,
+			)
+			frame, win_i := _lua_check_frame_window(L, app, 1)
+			we_state := &app.state.we[win_i]
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			effect_soft_clip_full(app, win_i, soft_clip_v, false)
+			return 0
+		}, lua_name = "soft_clip", lua_full_path = "effects.soft_clip", desc = `f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
+Uses the Soft Clip Effect with threshold x.` + W_AND_F_PARAMETER}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			context = app_context
+			app := lua_get_app(L)
+			bitcrush_v: i32 = i32(lua.tointeger(L, 1))
+			_lua_waveform_check_clamp_or_error(
+				L,
+				1,
+				bitcrush_v,
+				effect_bit_crusher_clamp.min + 1,
+				effect_bit_crusher_clamp.max + 1,
+			)
+			frame, win_i := _lua_check_frame_window(L, app, 1)
+			we_state := &app.state.we[win_i]
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			effect_bit_crusher_full(app, win_i, WaveformBitcrush(bitcrush_v - 1), false)
+			return 0
+		}, lua_name = "bit_crusher", lua_full_path = "effects.bit_crusher", desc = `f(x:int), f(x:int, f:int), or f(x:int, w:int, f:int)
+Uses the Bitcrusher Effect with x describing bits from [1,8].` + W_AND_F_PARAMETER}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			context = app_context
+			app := lua_get_app(L)
+			wavefold_v: f32 = f32(lua.tonumber(L, 1))
+			_lua_waveform_check_clamp_or_error(
+				L,
+				1,
+				wavefold_v,
+				effect_triangle_folding_clamp.min,
+				effect_triangle_folding_clamp.max,
+			)
+			frame, win_i := _lua_check_frame_window(L, app, 1)
+			we_state := &app.state.we[win_i]
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			effect_triangle_folding_full(app, win_i, wavefold_v, false)
+			return 0
+		}, lua_name = "triangle_fold", lua_full_path = "effects.triangle_fold", desc = `f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
+Uses the Triangle Folding Effect with threshold x.` + W_AND_F_PARAMETER}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			context = app_context
+			app := lua_get_app(L)
+			cheb_n_v: f32 = f32(lua.tonumber(L, 1))
+			frame, win_i := _lua_check_frame_window(L, app, 1)
+			we_state := &app.state.we[win_i]
+			clamp := effect_chebyshev_folding_clamp(we_state.num_points)
+			_lua_waveform_check_clamp_or_error(L, 1, cheb_n_v, clamp.min, clamp.max)
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			effect_chebyshev_folding_full(app, win_i, cheb_n_v, false)
+			return 0
+		}, lua_name = "chebyshev_fold", lua_full_path = "effects.chebyshev_fold", desc = `f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
+Uses the Chebyshev Polynomial Effect with threshold x.` + W_AND_F_PARAMETER}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			context = app_context
+			app := lua_get_app(L)
+			overtone_v: i32 = i32(lua.tointeger(L, 1))
+			_lua_waveform_check_clamp_or_error(
+				L,
+				1,
+				overtone_v,
+				effect_n_overtone_clamp.min,
+				effect_n_overtone_clamp.max,
+			)
+			frame, win_i := _lua_check_frame_window(L, app, 1)
+			we_state := &app.state.we[win_i]
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			effect_n_overtone_full(app, win_i, overtone_v, false)
+			return 0
+		}, lua_name = "n_overtone", lua_full_path = "effects.n_overtone", desc = `f(x:int), f(x:int, f:int), or f(x:int, w:int, f:int)
+Uses the As N Overtone Effect with threshold x.` + W_AND_F_PARAMETER}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			context = app_context
+			app := lua_get_app(L)
+			n_samp_v: i32 = i32(lua.tointeger(L, 1))
+			_lua_waveform_check_clamp_or_error(
+				L,
+				1,
+				n_samp_v,
+				effect_resampling_clamp.min,
+				effect_resampling_clamp.max,
+			)
+			win_i := int(lua.tointeger(L, 2))
+			_lua_check_window(L, 2, app, win_i)
+			win_i -= 1
+			we_state := &app.state.we[win_i]
+			n_samp_interp_str: cstring = lua.tostring(L, 3)
+			n_samp_interp: InterpolationType = ---
+			switch (n_samp_interp_str) {
+			case "None":
+				n_samp_interp = .None
+			case "Linear":
+				n_samp_interp = .Linear
+			case "Cubic":
+				n_samp_interp = .Cubic
+			case:
+				n_samp_interp = .None
+			}
+			effect_resampling_full(app, win_i, n_samp_v, n_samp_interp, false)
+			return 0
+		}, lua_name = "resampling", lua_full_path = "effects.resampling", desc = `f(x:string), or f(x:string, w:int)
 Uses the Resampling Effect with interpolation value x as 'None', 'Linear', or 'Cubic'.
 Note: This effect affects all frames in window index w.
-No w uses the current window.`,
-	},
-    {ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		offset_v:f32 = f32(lua.tonumber(L, 1))
-		_lua_waveform_check_clamp_or_error(L, 1, offset_v, effect_offset_clamp.min, effect_offset_clamp.max)
-		frame, win_i := _lua_check_frame_window(L, app, 1)
-		we_state := &app.state.we[win_i]
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		effect_offset_full(app, win_i, offset_v, false)
-		return 0
-	}, lua_name = "offset", lua_full_path = "effects.offset",
-		desc=`f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
-Uses the Vertical Offset Effect with threshold x.` + W_AND_F_PARAMETER,
-	},
-}//odinfmt: enable
+No w uses the current window.`}, {ptr = proc "c" (L: ^lua.State) -> c.int {
+			context = app_context
+			app := lua_get_app(L)
+			offset_v: f32 = f32(lua.tonumber(L, 1))
+			_lua_waveform_check_clamp_or_error(
+				L,
+				1,
+				offset_v,
+				effect_offset_clamp.min,
+				effect_offset_clamp.max,
+			)
+			frame, win_i := _lua_check_frame_window(L, app, 1)
+			we_state := &app.state.we[win_i]
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			effect_offset_full(app, win_i, offset_v, false)
+			return 0
+		}, lua_name = "offset", lua_full_path = "effects.offset", desc = `f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
+Uses the Vertical Offset Effect with threshold x.` + W_AND_F_PARAMETER}}
 lua_print :: proc "c" (L: ^lua.State) -> c.int {
 	context = app_context
 	app := lua_get_app(L)
@@ -838,190 +820,191 @@ lua_print :: proc "c" (L: ^lua.State) -> c.int {
 		if i < n do fmt.sbprint(&sb, " ")
 	}
 	str_output := strings.to_string(sb)
-	output_log_print(&app.state.output_log, .Info, "script.lua", "%s", str_output)
+	output_log_printf(&app.state.output_log, .Info, "script.lua", "%s", str_output)
 	fmt.println(str_output)
 	return 0
 }
 
 
-
-
-//odinfmt: disable
-lua_data_functions :: [?]LuaCustomFunction{
-	{ptr=proc "c" (L: ^lua.State) -> c.int {
-		app := lua_get_app(L)
-		win_i := app.state.lua_win_idx
-		we_state := &app.state.we[win_i]
-		data_frame := we_state.data_frame
-		return _lua_data(L, 0, app, win_i, f32(data_frame))
-	}, lua_name = "s", lua_full_path = "data.s",
-		desc=`f(s:int) -> float or f(s:int, v:float)
-Returns the value of sample at index s (0-index) at the current frame and window. If v is used, sets sample with value v instead.`,
-	},
+lua_data_functions :: [?]LuaCustomFunction {
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		app := lua_get_app(L)
-		win_i := app.state.lua_win_idx
-		data_frame := lua.tonumber(L, 1)
-		return _lua_data(L, 1, app, win_i, f32(data_frame))
-	}, lua_name = "fs", lua_full_path = "data.fs",
-		desc=`f(f:int, s:int) -> float or f(f:int, s:int, v:float)
-Returns the value of at frame index f (0-index) at sample index s (0-index) and current window. If v is used, sets sample with value v instead.`,
-	},
+			app := lua_get_app(L)
+			win_i := app.state.lua_win_idx
+			we_state := &app.state.we[win_i]
+			data_frame := we_state.data_frame
+			return _lua_data(L, 0, app, win_i, f32(data_frame))
+		}, lua_name = "s", lua_full_path = "data.s", desc = `f(s:int) -> float or f(s:int, v:float)
+Returns the value of sample at index s (0-index) at the current frame and window. If v is used, sets sample with value v instead.`},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		app := lua_get_app(L)
-		win_i: int = int(lua.tointeger(L, 1))
-		_lua_check_window(L, 1, app, win_i)
-		win_i -= 1
-		data_frame := lua.tonumber(L, 2)
-		return _lua_data(L, 2, app, win_i, f32(data_frame))
-	}, lua_name = "wfs", lua_full_path = "data.wfs",
-		desc=`f(w: int, f:int, s:int) -> float or f(w: int, f:int, s:int, v:float)
-Returns the value of at frame index f (0-index) at sample index s (0-index) at window index w (1-index). If v is used, sets sample with value v instead.`,
-	},
+			app := lua_get_app(L)
+			win_i := app.state.lua_win_idx
+			data_frame := lua.tonumber(L, 1)
+			return _lua_data(L, 1, app, win_i, f32(data_frame))
+		}, lua_name = "fs", lua_full_path = "data.fs", desc = `f(f:int, s:int) -> float or f(f:int, s:int, v:float)
+Returns the value of at frame index f (0-index) at sample index s (0-index) and current window. If v is used, sets sample with value v instead.`},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		app := lua_get_app(L)
-		win_i := app.state.lua_win_idx
-		frame_from := i32(lua.tointeger(L, 1))
-		_lua_check_frame(L, 1, win_i, frame_from, app)
-		frame_to := i32(lua.tointeger(L, 2))
-		_lua_check_frame(L, 2, win_i, frame_to, app)
-		we_state := &app.state.we[win_i]
-		if frame_from == frame_to { //Because of copy_non_overlapping
+			app := lua_get_app(L)
+			win_i: int = int(lua.tointeger(L, 1))
+			_lua_check_window(L, 1, app, win_i)
+			win_i -= 1
+			data_frame := lua.tonumber(L, 2)
+			return _lua_data(L, 2, app, win_i, f32(data_frame))
+		}, lua_name = "wfs", lua_full_path = "data.wfs", desc = `f(w: int, f:int, s:int) -> float or f(w: int, f:int, s:int, v:float)
+Returns the value of at frame index f (0-index) at sample index s (0-index) at window index w (1-index). If v is used, sets sample with value v instead.`},
+	{
+		ptr = proc "c" (L: ^lua.State) -> c.int {
+			app := lua_get_app(L)
+			win_i := app.state.lua_win_idx
+			frame_from := i32(lua.tointeger(L, 1))
+			_lua_check_frame(L, 1, win_i, frame_from, app)
+			frame_to := i32(lua.tointeger(L, 2))
+			_lua_check_frame(L, 2, win_i, frame_to, app)
+			we_state := &app.state.we[win_i]
+			if frame_from == frame_to { 	//Because of copy_non_overlapping
+				return 0
+			}
+			context = app_context
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame_from)
+			we_state.data_frame = frame_to
+			for i in 0 ..< we_state.num_points {
+				undo_redo_manager_undo_wedraw(&we_state.undo_redo, app, win_i, i, frame_to)
+			}
+			mem.copy_non_overlapping(
+				&we_state.data[data_index(frame_to, 0)],
+				&we_state.data[data_index(frame_from, 0)],
+				int(we_state.num_points) * size_of(f32),
+			)
 			return 0
-		}
-		context = app_context
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame_from)
-		we_state.data_frame = frame_to
-		for i in 0..<we_state.num_points {
-			undo_redo_manager_undo_wedraw(&we_state.undo_redo, app, win_i, i, frame_to)
-		}
-		mem.copy_non_overlapping(
-			&we_state.data[data_index(frame_to,0)],
-			&we_state.data[data_index(frame_from,0)],
-			int(we_state.num_points)*size_of(f32)
-		)
-		return 0
-	}, lua_name = "copy", lua_full_path = "data.copy",
-		desc=`f(ff:int, ft:int)
+		},
+		lua_name = "copy",
+		lua_full_path = "data.copy",
+		desc = `f(ff:int, ft:int)
 Copies samples from frame indices ft to tt (both 0-index)`,
 	},
-	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		app := lua_get_app(L)
-		win_i := app.state.lua_win_idx
-		frame_from := i32(lua.tointeger(L, 1))
-		_lua_check_frame(L, 1, win_i, frame_from, app)
-		frame_to := i32(lua.tointeger(L, 2))
-		_lua_check_frame(L, 2, win_i, frame_to, app)
-		we_state := &app.state.we[win_i]
-		if frame_from == frame_to { //Because of copy_non_overlapping
+	{
+		ptr = proc "c" (L: ^lua.State) -> c.int {
+			app := lua_get_app(L)
+			win_i := app.state.lua_win_idx
+			frame_from := i32(lua.tointeger(L, 1))
+			_lua_check_frame(L, 1, win_i, frame_from, app)
+			frame_to := i32(lua.tointeger(L, 2))
+			_lua_check_frame(L, 2, win_i, frame_to, app)
+			we_state := &app.state.we[win_i]
+			if frame_from == frame_to { 	//Because of copy_non_overlapping
+				return 0
+			}
+			context = app_context
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame_from)
+			we_state.data_frame = frame_to
+			for i in 0 ..< we_state.num_points {
+				undo_redo_manager_undo_wedraw(&we_state.undo_redo, app, win_i, i, frame_to)
+			}
+			mem.copy_non_overlapping(
+				&we_state.data[data_index(frame_to, 0)],
+				&we_state.data[data_index(frame_from, 0)],
+				int(we_state.num_points) * size_of(f32),
+			)
+			for i in 0 ..< we_state.num_points {
+				undo_redo_manager_undo_wedraw(&we_state.undo_redo, app, win_i, i, frame_from)
+				we_state.data[data_index(frame_from, u32(i))] = 0
+			}
 			return 0
-		}
-		context = app_context
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame_from)
-		we_state.data_frame = frame_to
-		for i in 0..<we_state.num_points {
-			undo_redo_manager_undo_wedraw(&we_state.undo_redo, app, win_i, i, frame_to)
-		}
-		mem.copy_non_overlapping(
-			&we_state.data[data_index(frame_to,0)],
-			&we_state.data[data_index(frame_from,0)],
-			int(we_state.num_points)*size_of(f32)
-		)
-		for i in 0..<we_state.num_points {
-			undo_redo_manager_undo_wedraw(&we_state.undo_redo, app, win_i, i, frame_from)
-			we_state.data[data_index(frame_from,u32(i))] = 0
-		}
-		return 0
-	}, lua_name = "move", lua_full_path = "data.move",
-		desc=`f(ff:int, ft:int)
+		},
+		lua_name = "move",
+		lua_full_path = "data.move",
+		desc = `f(ff:int, ft:int)
 Moves samples from frame indices ft to tt (both 0-index) where ff samples will be set to 0`,
 	},
-	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		app := lua_get_app(L)
-		win_i := app.state.lua_win_idx
-		frame_from := i32(lua.tointeger(L, 1))
-		_lua_check_frame(L, 1, win_i, frame_from, app)
-		frame_to := i32(lua.tointeger(L, 2))
-		_lua_check_frame(L, 2, win_i, frame_to, app)
-		we_state := &app.state.we[win_i]
-		if frame_from == frame_to { //Because of copy_non_overlapping
+	{
+		ptr = proc "c" (L: ^lua.State) -> c.int {
+			app := lua_get_app(L)
+			win_i := app.state.lua_win_idx
+			frame_from := i32(lua.tointeger(L, 1))
+			_lua_check_frame(L, 1, win_i, frame_from, app)
+			frame_to := i32(lua.tointeger(L, 2))
+			_lua_check_frame(L, 2, win_i, frame_to, app)
+			we_state := &app.state.we[win_i]
+			if frame_from == frame_to { 	//Because of copy_non_overlapping
+				return 0
+			}
+			context = app_context
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame_from)
+			we_state.data_frame = frame_to
+			for i in 0 ..< we_state.num_points {
+				undo_redo_manager_undo_wedraw(&we_state.undo_redo, app, win_i, i, frame_to)
+				undo_redo_manager_undo_wedraw(&we_state.undo_redo, app, win_i, i, frame_from)
+				tmp := we_state.data[data_index(frame_from, u32(i))]
+				we_state.data[data_index(frame_from, u32(i))] =
+					we_state.data[data_index(frame_to, u32(i))]
+				we_state.data[data_index(frame_to, u32(i))] = tmp
+			}
 			return 0
-		}
-		context = app_context
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame_from)
-		we_state.data_frame = frame_to
-		for i in 0..<we_state.num_points {
-			undo_redo_manager_undo_wedraw(&we_state.undo_redo, app, win_i, i, frame_to)
-			undo_redo_manager_undo_wedraw(&we_state.undo_redo, app, win_i, i, frame_from)
-			tmp := we_state.data[data_index(frame_from, u32(i))]
-			we_state.data[data_index(frame_from, u32(i))] = we_state.data[data_index(frame_to, u32(i))]
-			we_state.data[data_index(frame_to, u32(i))] = tmp
-		}
-		return 0
-	}, lua_name = "swap", lua_full_path = "data.swap",
-		desc=`f(ff:int, ft:int)
+		},
+		lua_name = "swap",
+		lua_full_path = "data.swap",
+		desc = `f(ff:int, ft:int)
 Swaps samples for frame indices ft and tt (both 0-index)`,
 	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		app := lua_get_app(L)
-		win_i := app.state.lua_win_idx
-		frame := i32(lua.tointeger(L, 1))
-		_lua_check_frame(L, 1, win_i, frame, app)
-		we_state := &app.state.we[win_i]
-		context = app_context
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		for i in 0..<we_state.num_points {
-			undo_redo_manager_undo_wedraw(&we_state.undo_redo, app, win_i, i, frame)
-			we_state.data[data_index(frame, u32(i))] = 0
-		}
-		return 0
-	}, lua_name = "delete", lua_full_path = "data.delete",
-		desc=`f(f:int)
-Sets all samples of frame f (0-index) to 0`,
-	},
-	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		app := lua_get_app(L)
-		frame, win_i := _lua_check_frame_window(L, app, 0)
-		we_state := &app.state.we[win_i]
-		lua.createtable(L, c.int(we_state.num_points), 0)
-		for i in 0..<u32(we_state.num_points) {
-			lua.pushnumber(L, lua.Number(we_state.data[data_index(frame, i)]))
-			lua.rawseti(L, -2, lua.Integer(i + 1))
-		}
-		return 1
-	}, lua_name = "table_r", lua_full_path = "data.table_r",
-		desc=`f() -> table, f(f:int) -> table, or f(w:int, f:int) -> table
-Returns a table of all sample indices (1-index)` + W_AND_F_PARAMETER,
-	},
-	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		app := lua_get_app(L)
-		if !lua.istable(L, 1) {
-			lua.L_argerror(L, 1, "Argument must be a table")
-		}	
-		lua.pushnil(L)
-		frame, win_i := _lua_check_frame_window(L, app, 1)
-		we_state := &app.state.we[win_i]
-		we_state.data_frame = frame
-		for lua.next(L, 1) != 0 {
-			if lua.isinteger(L, -2) && lua.isnumber(L, -1) {
-				context = app_context
-				undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-				lua_i:int = int(lua.tointeger(L, -2))
-				data_f:f32 = f32(lua.tonumber(L, -1))
-				if lua_i > 0|| i32(lua_i) <= we_state.num_points {
-					i := lua_i - 1
-					undo_redo_manager_undo_wedraw(&we_state.undo_redo, app, win_i, i32(i), frame)
-					we_state.data[data_index(frame,u32(i))] = data_f
-				}
+			app := lua_get_app(L)
+			win_i := app.state.lua_win_idx
+			frame := i32(lua.tointeger(L, 1))
+			_lua_check_frame(L, 1, win_i, frame, app)
+			we_state := &app.state.we[win_i]
+			context = app_context
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			for i in 0 ..< we_state.num_points {
+				undo_redo_manager_undo_wedraw(&we_state.undo_redo, app, win_i, i, frame)
+				we_state.data[data_index(frame, u32(i))] = 0
 			}
-			lua.pop(L, 1)
-		}
-		return 0
-	}, lua_name = "table_w", lua_full_path = "data.table_w",
-		desc=`f(t:table), f(t:table, f:int), or f(t:table, w:int, f:int), where t is type [int] = float
-Sets values using table t where t key values are 1-index` + W_AND_F_PARAMETER,
-	},
-}//odinfmt: enable
+			return 0
+		}, lua_name = "delete", lua_full_path = "data.delete", desc = `f(f:int)
+Sets all samples of frame f (0-index) to 0`},
+	{ptr = proc "c" (L: ^lua.State) -> c.int {
+			app := lua_get_app(L)
+			frame, win_i := _lua_check_frame_window(L, app, 0)
+			we_state := &app.state.we[win_i]
+			lua.createtable(L, c.int(we_state.num_points), 0)
+			for i in 0 ..< u32(we_state.num_points) {
+				lua.pushnumber(L, lua.Number(we_state.data[data_index(frame, i)]))
+				lua.rawseti(L, -2, lua.Integer(i + 1))
+			}
+			return 1
+		}, lua_name = "table_r", lua_full_path = "data.table_r", desc = `f() -> table, f(f:int) -> table, or f(w:int, f:int) -> table
+Returns a table of all sample indices (1-index)` + W_AND_F_PARAMETER},
+	{ptr = proc "c" (L: ^lua.State) -> c.int {
+			app := lua_get_app(L)
+			if !lua.istable(L, 1) {
+				lua.L_argerror(L, 1, "Argument must be a table")
+			}
+			frame, win_i := _lua_check_frame_window(L, app, 1)
+			we_state := &app.state.we[win_i]
+			we_state.data_frame = frame
+			lua.pushnil(L)
+			for lua.next(L, 1) != 0 {
+				if lua.isinteger(L, -2) && lua.isnumber(L, -1) {
+					context = app_context
+					undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+					lua_i: int = int(lua.tointeger(L, -2))
+					data_f: f32 = f32(lua.tonumber(L, -1))
+					if lua_i > 0 || i32(lua_i) <= we_state.num_points {
+						i := lua_i - 1
+						undo_redo_manager_undo_wedraw(
+							&we_state.undo_redo,
+							app,
+							win_i,
+							i32(i),
+							frame,
+						)
+						we_state.data[data_index(frame, u32(i))] = data_f
+					}
+				}
+				lua.pop(L, 1)
+			}
+			return 0
+		}, lua_name = "table_w", lua_full_path = "data.table_w", desc = `f(t:table), f(t:table, f:int), or f(t:table, w:int, f:int), where t is type [int] = float
+Sets values using table t where t key values are 1-index` + W_AND_F_PARAMETER},
+}
 lua_apply_preset :: proc "c" (L: ^lua.State) -> c.int {
 	app := lua_get_app(L)
 	preset_value := LuaPresetChoose(lua.tointeger(L, 1))
@@ -1035,8 +1018,12 @@ lua_apply_preset :: proc "c" (L: ^lua.State) -> c.int {
 		preset_empty(app, win_i, false)
 	case .sine:
 		preset_sine(app, win_i, false)
+	case .pulse_1_4th:
+		preset_pulse_1_4th(app, win_i, false)
 	case .square:
 		preset_square(app, win_i, false)
+	case .pulse_1_8th:
+		preset_pulse_1_8th(app, win_i, false)
 	case .sawtooth:
 		preset_sawtooth(app, win_i, false)
 	case .triangle:
@@ -1050,260 +1037,244 @@ lua_apply_preset :: proc "c" (L: ^lua.State) -> c.int {
 }
 LUA_APPLY_PRESET_DESC ::
 	`f(i:int), f(i:int, f:int), or f(i:int, w:int, f:int)
-Changes all samples in a frame to preset waveforms, where the preset names are in the table preset and contains the i value.
+Changes all samples in a frame to preset waveforms, where the preset names are in the table presets and contain the i value.
 Use 'print(presets)' to check the values.` +
 	W_AND_F_PARAMETER
 LUA_HARMONICS_USE_APPLY :: "\nharmonics.apply is required to be called to apply the harmonics values."
 
-//odinfmt: disable
-lua_harmonics_functions :: [?]LuaCustomFunction{
+
+lua_harmonics_functions :: [?]LuaCustomFunction {
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		app := lua_get_app(L)
-		context = app_context
-		frame, win_i := _lua_check_frame_window(L, app, 0)
-		we_state := &app.state.we[win_i]
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		harmonics_update_model(app, win_i)
-		return 0
-	}, lua_name = "update", lua_full_path = "harmonics.update",
-		desc=`f(), f(f:int), or f(w:int, f:int)
-Updates the harmonic values and graph of the current frame. Use this first when editing any harmonics functions first.` + W_AND_F_PARAMETER,
-	},
+			app := lua_get_app(L)
+			context = app_context
+			frame, win_i := _lua_check_frame_window(L, app, 0)
+			we_state := &app.state.we[win_i]
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			harmonics_update_model(app, win_i)
+			return 0
+		}, lua_name = "update", lua_full_path = "harmonics.update", desc = `f(), f(f:int), or f(w:int, f:int)
+Updates the harmonic values and graph of the current frame. Use this first when editing any harmonics functions first.` + W_AND_F_PARAMETER},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		app := lua_get_app(L)
-		context = app_context
-		frame, win_i := _lua_check_frame_window(L, app, 0)
-		we_state := &app.state.we[win_i]
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		harmonics_apply(app, win_i, false)
-		return 0
-	}, lua_name = "apply", lua_full_path = "harmonics.apply",
-		desc=`f(), f(f:int), or f(w:int, f:int)
-Applies the current harmonic values by changing the sample values.` + W_AND_F_PARAMETER,
-	},
+			app := lua_get_app(L)
+			context = app_context
+			frame, win_i := _lua_check_frame_window(L, app, 0)
+			we_state := &app.state.we[win_i]
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			harmonics_apply(app, win_i, false)
+			return 0
+		}, lua_name = "apply", lua_full_path = "harmonics.apply", desc = `f(), f(f:int), or f(w:int, f:int)
+Applies the current harmonic values by changing the sample values.` + W_AND_F_PARAMETER},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		frame, win_i := _lua_check_frame_window(L, app, 1)
-		wfm := &app.state.we_h_wfs[win_i]
-		low_pass_v:f32 = f32(lua.tonumber(L, 1))
-		clamp := effect_pass_clamp(wfm)
-		_lua_waveform_check_clamp_or_error(L, 1, low_pass_v, clamp.min, clamp.max)
-		we_state := &app.state.we[win_i]
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		harmonics_update_model(app, win_i)
-		effect_low_pass(app, win_i, low_pass_v, false)
-		return 0
-	}, lua_name = "low_pass", lua_full_path = "harmonics.low_pass",
-		desc=`f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
-Uses the Low Pass Harmonics Effect with threshold x.` + W_AND_F_PARAMETER,
-	},
+			context = app_context
+			app := lua_get_app(L)
+			frame, win_i := _lua_check_frame_window(L, app, 1)
+			wfm := &app.state.we_h_wfs[win_i]
+			low_pass_v: f32 = f32(lua.tonumber(L, 1))
+			clamp := effect_pass_clamp(wfm)
+			_lua_waveform_check_clamp_or_error(L, 1, low_pass_v, clamp.min, clamp.max)
+			we_state := &app.state.we[win_i]
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			harmonics_update_model(app, win_i)
+			effect_low_pass(app, win_i, low_pass_v, false)
+			return 0
+		}, lua_name = "low_pass", lua_full_path = "harmonics.low_pass", desc = `f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
+Uses the Low Pass Harmonics Effect with threshold x.` + W_AND_F_PARAMETER},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		frame, win_i := _lua_check_frame_window(L, app, 1)
-		wfm := &app.state.we_h_wfs[win_i]
-		high_pass_v:f32 = f32(lua.tonumber(L, 1))
-		clamp := effect_pass_clamp(wfm)
-		_lua_waveform_check_clamp_or_error(L, 1, high_pass_v, clamp.min, clamp.max)
-		we_state := &app.state.we[win_i]
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		harmonics_update_model(app, win_i)
-		effect_high_pass(app, win_i, high_pass_v, false)
-		return 0
-	}, lua_name = "high_pass", lua_full_path = "harmonics.high_pass",
-		desc=`f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
-Uses the High Pass Harmonics Effect with threshold x.` + W_AND_F_PARAMETER,
-	},
+			context = app_context
+			app := lua_get_app(L)
+			frame, win_i := _lua_check_frame_window(L, app, 1)
+			wfm := &app.state.we_h_wfs[win_i]
+			high_pass_v: f32 = f32(lua.tonumber(L, 1))
+			clamp := effect_pass_clamp(wfm)
+			_lua_waveform_check_clamp_or_error(L, 1, high_pass_v, clamp.min, clamp.max)
+			we_state := &app.state.we[win_i]
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			harmonics_update_model(app, win_i)
+			effect_high_pass(app, win_i, high_pass_v, false)
+			return 0
+		}, lua_name = "high_pass", lua_full_path = "harmonics.high_pass", desc = `f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
+Uses the High Pass Harmonics Effect with threshold x.` + W_AND_F_PARAMETER},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		frame, win_i := _lua_check_frame_window(L, app, 0)
-		we_state := &app.state.we[win_i]
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		harmonics_update_model(app, win_i)
-		effect_odd_harmonics_only(app, win_i, false)
-		return 0
-	}, lua_name = "only_odd", lua_full_path = "harmonics.only_odd",
-		desc=`f(), f(f:int), or f(w:int, f:int)
-Uses the Odd Harmonics Only Harmonics Effect.` + W_AND_F_PARAMETER,
-	},
+			context = app_context
+			app := lua_get_app(L)
+			frame, win_i := _lua_check_frame_window(L, app, 0)
+			we_state := &app.state.we[win_i]
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			harmonics_update_model(app, win_i)
+			effect_odd_harmonics_only(app, win_i, false)
+			return 0
+		}, lua_name = "only_odd", lua_full_path = "harmonics.only_odd", desc = `f(), f(f:int), or f(w:int, f:int)
+Uses the Odd Harmonics Only Harmonics Effect.` + W_AND_F_PARAMETER},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		frame, win_i := _lua_check_frame_window(L, app, 0)
-		we_state := &app.state.we[win_i]
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		harmonics_update_model(app, win_i)
-		effect_even_harmonics_only(app, win_i, false)
-		return 0
-	}, lua_name = "only_even", lua_full_path = "harmonics.only_even",
-		desc=`f(), f(f:int), or f(w:int, f:int)
-Uses the Even Harmonics Only Harmonics Effect.` + W_AND_F_PARAMETER,
-	},
+			context = app_context
+			app := lua_get_app(L)
+			frame, win_i := _lua_check_frame_window(L, app, 0)
+			we_state := &app.state.we[win_i]
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			harmonics_update_model(app, win_i)
+			effect_even_harmonics_only(app, win_i, false)
+			return 0
+		}, lua_name = "only_even", lua_full_path = "harmonics.only_even", desc = `f(), f(f:int), or f(w:int, f:int)
+Uses the Even Harmonics Only Harmonics Effect.` + W_AND_F_PARAMETER},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		frame, win_i := _lua_check_frame_window(L, app, 1)
-		h_shift_by:f32 = f32(lua.tonumber(L, 1))
-		we_state := &app.state.we[win_i]
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		harmonics_update_model(app, win_i)
-		effect_shift_harmonics(app, win_i, h_shift_by, false)
-		return 0
-	}, lua_name = "shift", lua_full_path = "harmonics.shift",
-		desc=`f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
-Uses the Shift By Effect with threshold x in radians.` + W_AND_F_PARAMETER,
-	},
+			context = app_context
+			app := lua_get_app(L)
+			frame, win_i := _lua_check_frame_window(L, app, 1)
+			h_shift_by: f32 = f32(lua.tonumber(L, 1))
+			we_state := &app.state.we[win_i]
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			harmonics_update_model(app, win_i)
+			effect_shift_harmonics(app, win_i, h_shift_by, false)
+			return 0
+		}, lua_name = "shift", lua_full_path = "harmonics.shift", desc = `f(x:float), f(x:float, f:int), or f(x:float, w:int, f:int)
+Uses the Shift By Effect with threshold x in radians.` + W_AND_F_PARAMETER},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		frame, win_i := _lua_check_frame_window(L, app, 1)
-		wfm := &app.state.we_h_wfs[win_i]
-		amp_i := lua.tointeger(L, 1)
-		_lua_check_harmonic_index(L, wfm, amp_i, true)
-		we_state := &app.state.we[win_i]
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		lua.pushnumber(L, lua.Number(wfm.amp[amp_i]))
-		return 1
-	}, lua_name = "amplitude_r", lua_full_path = "harmonics.amplitude_r",
-		desc=`f(h:int) -> float, f(h:int, f:int) -> float, or f(h:int, w:int, f:int) -> float
+			context = app_context
+			app := lua_get_app(L)
+			frame, win_i := _lua_check_frame_window(L, app, 1)
+			wfm := &app.state.we_h_wfs[win_i]
+			amp_i := lua.tointeger(L, 1)
+			_lua_check_harmonic_index(L, wfm, amp_i, true)
+			we_state := &app.state.we[win_i]
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			lua.pushnumber(L, lua.Number(wfm.amp[amp_i]))
+			return 1
+		}, lua_name = "amplitude_r", lua_full_path = "harmonics.amplitude_r", desc = `f(h:int) -> float, f(h:int, f:int) -> float, or f(h:int, w:int, f:int) -> float
 Gets the current value of amplitude by harmonic index h (1-index).
-h at 0 returns the DC Offset` + W_AND_F_PARAMETER,
-	},
+h at 0 returns the DC Offset` + W_AND_F_PARAMETER},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		frame, win_i := _lua_check_frame_window(L, app, 2)
-		wfm := &app.state.we_h_wfs[win_i]
-		amp_i := lua.tointeger(L, 1)
-		_lua_check_harmonic_index(L, wfm, amp_i, true)
-		we_state := &app.state.we[win_i]
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		new_value: f32 = f32(lua.tonumber(L, 2))
-		wfm.amp[amp_i] = new_value
-		return 0
-	}, lua_name = "amplitude_w", lua_full_path = "harmonics.amplitude_w",
-		desc=`f(h:int, v:float), f(h:int, v:float, f:int), or f(h:int, v:float, w:int, f:int)
+			context = app_context
+			app := lua_get_app(L)
+			frame, win_i := _lua_check_frame_window(L, app, 2)
+			wfm := &app.state.we_h_wfs[win_i]
+			amp_i := lua.tointeger(L, 1)
+			_lua_check_harmonic_index(L, wfm, amp_i, true)
+			we_state := &app.state.we[win_i]
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			new_value: f32 = f32(lua.tonumber(L, 2))
+			wfm.amp[amp_i] = new_value
+			return 0
+		}, lua_name = "amplitude_w", lua_full_path = "harmonics.amplitude_w", desc = `f(h:int, v:float), f(h:int, v:float, f:int), or f(h:int, v:float, w:int, f:int)
 Sets the current value of amplitude by harmonic index h (1-index) with value v.
-h at 0 sets the DC Offset` + LUA_HARMONICS_USE_APPLY + W_AND_F_PARAMETER,
-	},
+h at 0 sets the DC Offset` + LUA_HARMONICS_USE_APPLY + W_AND_F_PARAMETER},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		frame, win_i := _lua_check_frame_window(L, app, 1)
-		wfm := &app.state.we_h_wfs[win_i]
-		ph_i := lua.tointeger(L, 1)
-		_lua_check_harmonic_index(L, wfm, ph_i, false)
-		we_state := &app.state.we[win_i]
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		lua.pushnumber(L, lua.Number(wfm.phase[ph_i]))
-		return 1
-	}, lua_name = "phase_r", lua_full_path = "harmonics.phase_r",
-		desc=`f(h:int) -> float, f(h:int, f:int) -> float, or f(h:int, w:int, f:int) -> float
-Gets the current value the phase by harmonic index h (1-index)` + W_AND_F_PARAMETER,
-	},
+			context = app_context
+			app := lua_get_app(L)
+			frame, win_i := _lua_check_frame_window(L, app, 1)
+			wfm := &app.state.we_h_wfs[win_i]
+			ph_i := lua.tointeger(L, 1)
+			_lua_check_harmonic_index(L, wfm, ph_i, false)
+			we_state := &app.state.we[win_i]
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			lua.pushnumber(L, lua.Number(wfm.phase[ph_i]))
+			return 1
+		}, lua_name = "phase_r", lua_full_path = "harmonics.phase_r", desc = `f(h:int) -> float, f(h:int, f:int) -> float, or f(h:int, w:int, f:int) -> float
+Gets the current value the phase by harmonic index h (1-index)` + W_AND_F_PARAMETER},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		context = app_context
-		app := lua_get_app(L)
-		frame, win_i := _lua_check_frame_window(L, app, 1)
-		wfm := &app.state.we_h_wfs[win_i]
-		we_state := &app.state.we[win_i]
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		ph_i := lua.tointeger(L, 1)
-		_lua_check_harmonic_index(L, wfm, ph_i, false)
-		new_value: f32 = f32(lua.tonumber(L, 2))
-		wfm.phase[ph_i] = math.mod(new_value,(2 * math.PI))
-		return 0
-	}, lua_name = "phase_w", lua_full_path = "harmonics.phase_w",
-		desc=`f(h:int, v:float), f(h:int, f:int, v:float), or f(h:int, w:int, f:int, v:float)
-Sets the current value the phase by harmonic index h (1-index) with value v` + LUA_HARMONICS_USE_APPLY + W_AND_F_PARAMETER,
-	},
-	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		app := lua_get_app(L)
-		frame, win_i := _lua_check_frame_window(L, app, 0)
-		we_state := &app.state.we[win_i]
-		we_state.data_frame = frame
-		wfm := &app.state.we_h_wfs[win_i]
-		lua.createtable(L, c.int(wfm.n), 1)
-		lua.pushstring(L, "dc")
-		lua.pushnumber(L, lua.Number(wfm.amp[0]))
-		lua.rawset(L, -3)
-		for i in 1..=u32(wfm.n) {
-			lua.createtable(L, 0, 2)
-			lua.pushstring(L, "a")
-			lua.pushnumber(L, lua.Number(wfm.amp[i]))
+			context = app_context
+			app := lua_get_app(L)
+			frame, win_i := _lua_check_frame_window(L, app, 1)
+			wfm := &app.state.we_h_wfs[win_i]
+			we_state := &app.state.we[win_i]
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			ph_i := lua.tointeger(L, 1)
+			_lua_check_harmonic_index(L, wfm, ph_i, false)
+			new_value: f32 = f32(lua.tonumber(L, 2))
+			wfm.phase[ph_i] = math.mod(new_value, (2 * math.PI))
+			return 0
+		}, lua_name = "phase_w", lua_full_path = "harmonics.phase_w", desc = `f(h:int, v:float), f(h:int, f:int, v:float), or f(h:int, w:int, f:int, v:float)
+Sets the current value the phase by harmonic index h (1-index) with value v` + LUA_HARMONICS_USE_APPLY + W_AND_F_PARAMETER},
+	{
+		ptr = proc "c" (L: ^lua.State) -> c.int {
+			app := lua_get_app(L)
+			frame, win_i := _lua_check_frame_window(L, app, 0)
+			we_state := &app.state.we[win_i]
+			we_state.data_frame = frame
+			wfm := &app.state.we_h_wfs[win_i]
+			lua.createtable(L, c.int(wfm.n), 1)
+			lua.pushstring(L, "dc")
+			lua.pushnumber(L, lua.Number(wfm.amp[0]))
 			lua.rawset(L, -3)
-			lua.pushstring(L, "p")
-			lua.pushnumber(L, lua.Number(wfm.phase[i]))
-			lua.rawset(L, -3)
-			lua.rawseti(L, -2, lua.Integer(i)) //table1[i] = table2{'a'=...,'p'=...}
-		}
-		return 1
-	}, lua_name = "table_r", lua_full_path = "harmonics.table_r",
-		desc=`f() -> t:table, f(f:int) -> t:table, or f(w:int, f:int) -> t:table
+			for i in 1 ..= u32(wfm.n) {
+				lua.createtable(L, 0, 2)
+				lua.pushstring(L, "a")
+				lua.pushnumber(L, lua.Number(wfm.amp[i]))
+				lua.rawset(L, -3)
+				lua.pushstring(L, "p")
+				lua.pushnumber(L, lua.Number(wfm.phase[i]))
+				lua.rawset(L, -3)
+				lua.rawseti(L, -2, lua.Integer(i)) //table1[i] = table2{'a'=...,'p'=...}
+			}
+			return 1
+		},
+		lua_name = "table_r",
+		lua_full_path = "harmonics.table_r",
+		desc = `f() -> t:table, f(f:int) -> t:table, or f(w:int, f:int) -> t:table
 where t has type t[int] = {['a']=float, ['p']=float} and t['dc']=float
 Returns table describing the harmonics and DC offset` + W_AND_F_PARAMETER,
 	},
-	{ptr = proc "c" (L: ^lua.State) -> c.int {
-		app := lua_get_app(L)
-		table_i :: 1
-		if !lua.istable(L, table_i) {
-			lua.L_error(L, "Argument #1 must be a table")
-		}
-		context = app_context
-		frame, win_i := _lua_check_frame_window(L, app, 1)
-		we_state := &app.state.we[win_i]
-		undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
-		we_state.data_frame = frame
-		wfm := &app.state.we_h_wfs[win_i]
-		lua.pushstring(L, "dc")
-		lua.rawget(L, table_i)
-		if lua.isnumber(L, -1) {
-			wfm.amp[0] = f32(lua.tonumber(L, -1))
-		}
-		lua.pop(L, 1)
-		lua.pushnil(L)
-		for lua.next(L, table_i) != 0 { //[table, ..., (nil or i)] -> [table, ..., i, table[i]=table2] or [table, ..., nil]
-			pop_n:c.int = 1
-			if lua.isinteger(L, -2) {
-				if lua.istable(L, -1) {
-					i := lua.tointeger(L, -2)
-					if i > 0 && i <= lua.Integer(wfm.n) {
-						lua.pushstring(L, "a")
-						lua.rawget(L, -2) //[table, ..., i, table2, 'a' -> table2.a]
-						if lua.isnumber(L, -1) {
-							wfm.amp[i] = f32(lua.tonumber(L, -1))
+	{
+		ptr = proc "c" (L: ^lua.State) -> c.int {
+			app := lua_get_app(L)
+			table_i :: 1
+			if !lua.istable(L, table_i) {
+				lua.L_error(L, "Argument #1 must be a table")
+			}
+			context = app_context
+			frame, win_i := _lua_check_frame_window(L, app, 1)
+			we_state := &app.state.we[win_i]
+			undo_redo_manager_undo_data_frame(&we_state.undo_redo, app, win_i, frame)
+			we_state.data_frame = frame
+			wfm := &app.state.we_h_wfs[win_i]
+			lua.pushstring(L, "dc")
+			lua.rawget(L, table_i)
+			if lua.isnumber(L, -1) {
+				wfm.amp[0] = f32(lua.tonumber(L, -1))
+			}
+			lua.pop(L, 1)
+			lua.pushnil(L)
+			for lua.next(L, table_i) != 0 { 	//[table, ..., (nil or i)] -> [table, ..., i, table[i]=table2] or [table, ..., nil]
+				pop_n: c.int = 1
+				if lua.isinteger(L, -2) {
+					if lua.istable(L, -1) {
+						i := lua.tointeger(L, -2)
+						if i > 0 && i <= lua.Integer(wfm.n) {
+							lua.pushstring(L, "a")
+							lua.rawget(L, -2) //[table, ..., i, table2, 'a' -> table2.a]
+							if lua.isnumber(L, -1) {
+								wfm.amp[i] = f32(lua.tonumber(L, -1))
+							}
+							lua.pushstring(L, "p")
+							lua.rawget(L, -3) //[table, ..., i, table2, table2.a, 'p' -> table2.p]
+							if lua.isnumber(L, -1) {
+								wfm.phase[i] = f32(lua.tonumber(L, -1))
+							}
+							pop_n = 3
 						}
-						lua.pushstring(L, "p")
-						lua.rawget(L, -3) //[table, ..., i, table2, table2.a, 'p' -> table2.p]
-						if lua.isnumber(L, -1) {
-							wfm.phase[i] = f32(lua.tonumber(L, -1))
-						} 
-						pop_n = 3
 					}
-				}
-			} //All [table, ..., i]
-			lua.pop(L, pop_n)
-		}
-		return 0
-	}, lua_name = "table_w", lua_full_path = "harmonics.table_w",
-		desc=`f(t:table), f(t:table, f:int), or f(t:table, w:int, f:int)
+				} //All [table, ..., i]
+				lua.pop(L, pop_n)
+			}
+			return 0
+		},
+		lua_name = "table_w",
+		lua_full_path = "harmonics.table_w",
+		desc = `f(t:table), f(t:table, f:int), or f(t:table, w:int, f:int)
 where t has type t[int] = {['a']=float, ['p']=float} and t['dc']=float
 Sets harmonics using table t` + LUA_HARMONICS_USE_APPLY + W_AND_F_PARAMETER,
 	},
-}//odinfmt: enable
+}
 _lua_check_harmonic_index :: proc "c" (
 	L: ^lua.State,
 	wfm: ^fm.Waveform_Model,
@@ -1496,4 +1467,138 @@ _lua_check_frame_window :: proc "contextless" (
 		_lua_check_frame(L, num_args + 2, win_i, frame, app)
 	}
 	return
+}
+
+lua_asdr_functions :: [?]LuaCustomFunction {
+	{
+		ptr = proc "c" (L: ^lua.State) -> c.int {
+			if lua.Type(lua.type(L, 1)) != .NUMBER {
+				lua.L_error(L, "Argument #1 is not a number")
+			}
+			a := lua.tointeger(L, 1)
+			if a <= 0 {
+				lua.L_error(L, "At argument #1, attack must be at least 1 or more")
+			}
+			d := lua.tointeger(L, 2)
+			if d <= 0 {
+				lua.L_error(L, "At argument #2, decay must be at least 1 or more")
+			}
+			s := lua.tonumber(L, 3)
+			if s < 0 || s > 1 {
+				lua.L_error(L, "At argument #3, sustain must be between [0, 1]")
+			}
+			r := lua.tointeger(L, 4)
+			if r <= 0 {
+				lua.L_error(L, "At argument #4, release must be at least 1 or more")
+			}
+			ud := cast(^ASDR)lua.newuserdata(L, size_of(ASDR))
+			ok: bool
+			ud^, ok = asdr_new(u64(a), u64(d), f64(s), u64(r))
+			if !ok {
+				lua.L_error(L, "Unexpected error")
+			}
+			lua.newtable(L)
+			lua.getglobal(L, "adsr")
+			lua.setfield(L, -2, "__index")
+			//TODO: Register metatable as this type todo checking if same metatable
+			lua.setmetatable(L, -2)
+			return 1
+		},
+		lua_name = "new",
+		lua_full_path = "adsr.new",
+		desc = `f(a: int, d: int, s: float, r: int) -> adsr
+Returns adsr where a, s, r is the sample rate of the length of attack, decay, and release,
+and s is the volume [0,1] of the sustain`,
+	},
+	{ptr = proc "c" (L: ^lua.State) -> c.int {
+			if lua.Type(lua.type(L, 1)) != .USERDATA {
+				lua.L_error(L, "Argument #1 must be an asdr object")
+			}
+			asdr := cast(^ASDR)lua.touserdata(L, 1)
+			on := lua.toboolean(L, 2)
+			samples := lua.tointeger(L, 3)
+			sample_loop: for i in 0 ..< samples {
+				switch asdr.state {
+				case .Off:
+					asdr.v = 0
+					if on {
+						asdr.state = .Attack
+						asdr.v = min(asdr.v + 1 / f64(asdr.a), 1)
+					} else {
+						break sample_loop
+					}
+				case .Attack:
+					if asdr.v == 1 {
+						asdr.state = .Decay
+						asdr.v = max(asdr.v - (1 - asdr.s) / f64(asdr.d), asdr.s)
+					} else {
+						asdr.v = min(asdr.v + 1 / f64(asdr.a), 1)
+					}
+					if !on {
+						asdr.state = .Release
+						asdr.v = min(asdr.v - 1 / f64(asdr.r), 0)
+					}
+				case .Decay:
+					if (asdr.v == asdr.s) {
+						asdr.state = .Sustain
+					} else {
+						asdr.v = max(asdr.v - (1 - asdr.s) / f64(asdr.d), asdr.s)
+					}
+					if !on {
+						asdr.state = .Release
+						asdr.v = max(asdr.v - 1/ f64(asdr.r), 0)
+					}
+				case .Sustain:
+					asdr.v = asdr.s
+					if !on {
+						asdr.state = .Release
+						asdr.v = max(asdr.v - 1 / f64(asdr.r), 0)
+					} else {
+						break sample_loop
+					}
+				case .Release:
+					if (asdr.v == 0) {
+						asdr.state = .Off
+					} else {
+						asdr.v = max(asdr.v - 1 / f64(asdr.r), 0)
+					}
+				case:
+					lua.L_error(L, "Invalid enum state")
+				}
+			}
+			lua.pushnumber(L, lua.Number(asdr.v))
+			return 1
+		}, lua_name = "update", lua_full_path = "adsr.update", desc = `f(a: adsr, on: bool, s: samples) v: float
+Returns volume v for key on and s samples passed using adsr table from adsr.new()`},
+	{ptr = proc "c" (L: ^lua.State) -> c.int {
+			if lua.Type(lua.type(L, 1)) != .USERDATA {
+				lua.L_error(L, "Argument #1 must be an asdr object")
+			}
+			context = app_context
+			log.info(cast(^ASDR)lua.touserdata(L, 1))
+			return 0
+		}, lua_name = "print", lua_full_path = "adsr.print", desc = `f(a: adsr)
+Prints values of an asdr object for debugging purposes`},
+}
+
+ASDR_State :: enum lua.Integer {
+	Off,
+	Attack,
+	Decay,
+	Sustain,
+	Release,
+}
+
+ASDR :: struct {
+	a:     u64,
+	d:     u64,
+	s:     f64,
+	r:     u64,
+	v:     f64,
+	state: ASDR_State,
+}
+
+asdr_new :: proc "contextless" (a: u64, d: u64, s: f64, r: u64) -> (ASDR, bool) {
+	if a == 0 || d == 0 || s < 0 || s > 1 || r == 0 do return {}, false
+	return {a = a, d = d, s = s, r = r}, true
 }

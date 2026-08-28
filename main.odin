@@ -70,7 +70,7 @@ EventCall :: struct {
 
 TOOLTIP_BUF_MAX_LEN :: 256
 MAX_WAVEFORM_EDITOR_POINTS :: 2048
-MAX_WAVEFORM_EDITOR_WINDOWS :: 4
+MAX_WAVEFORM_EDITOR_WINDOWS :: 8
 //S When editing sample, A harmonics amplitude, and P harmonics phase
 WeEditValueStatus :: enum {
 	None,
@@ -151,7 +151,7 @@ tooltip_change :: proc(
 	tt.container = container
 	switch v in container {
 	case cstring:
-		output_log_print(
+		output_log_printf(
 			&app.state.output_log,
 			.Info if type == .Info else .Error,
 			"Tooltip",
@@ -159,7 +159,7 @@ tooltip_change :: proc(
 			v,
 		)
 	case strings.Builder:
-		output_log_print(
+		output_log_printf(
 			&app.state.output_log,
 			.Info if type == .Info else .Error,
 			"Tooltip",
@@ -582,14 +582,7 @@ Most widgets that contain numbers can be clicked with Ctrl + LMB to manually edi
 					}
 					we_state := &app.state.we[we_idx]
 					if !app.windows.waveform_editors[we_idx].is_active do break no_window
-					id_sb := &app.windows.waveform_editors[we_idx].id.(strings.Builder)
-					strings.builder_reset(id_sb)
-					fmt.sbprintf(
-						id_sb,
-						"Waveform Editor %d - %s\x00",
-						we_idx + 1,
-						app.state.fe_audio_state.file_str,
-					)
+					waveform_editor_rename(&app, we_idx, app.state.fe_audio_state.file_str)
 					we_state.num_points = app.state.fe_audio_state.prop.num_samples
 					set_frames(&app, we_idx, 1)
 					we_state.data_frame = 0
@@ -641,14 +634,7 @@ Most widgets that contain numbers can be clicked with Ctrl + LMB to manually edi
 			if !os.exists(file_str) {
 				file_explorer_write_wav_file(&app, file_str)
 				app.windows.file_explorer.show = false
-				id_sb := &app.windows.waveform_editors[file_explorer_load_idx].id.(strings.Builder)
-				strings.builder_reset(id_sb)
-				fmt.sbprintf(
-					id_sb,
-					"Waveform Editor %d - %s\x00",
-					file_explorer_load_idx + 1,
-					file_str,
-				)
+				waveform_editor_rename(&app, file_explorer_load_idx, file_str)
 				file_explorer_audio_destroy(&app.state.fe_audio_state)
 				break
 			}
@@ -666,14 +652,7 @@ Most widgets that contain numbers can be clicked with Ctrl + LMB to manually edi
 				if imgui.Button("Yes") {
 					file_explorer_write_wav_file(&app, file_str)
 					app.windows.file_explorer.show = false
-					id_sb := &app.windows.waveform_editors[file_explorer_load_idx].id.(strings.Builder)
-					strings.builder_reset(id_sb)
-					fmt.sbprintf(
-						id_sb,
-						"Waveform Editor %d - %s\x00",
-						file_explorer_load_idx + 1,
-						file_str,
-					)
+					waveform_editor_rename(&app, file_explorer_load_idx, file_str)
 					file_explorer_audio_destroy(&app.state.fe_audio_state)
 					break
 				}
@@ -708,6 +687,7 @@ Most widgets that contain numbers can be clicked with Ctrl + LMB to manually edi
 			}
 			os.file_info_slice_delete(fi_arr, context.allocator)
 			if len(fi_arr) == 0 {
+				waveform_editor_rename(&app, file_explorer_load_idx, feams.file_dir)
 				we_state := &app.state.we[file_explorer_load_idx]
 				for i in 0 ..< we_state.num_frames {
 					file_explorer_write_wav_file_frame(&app, feams.file_dir, i)
@@ -727,6 +707,7 @@ Most widgets that contain numbers can be clicked with Ctrl + LMB to manually edi
 					feams.file_dir,
 				)
 				if imgui.Button("Yes") {
+					waveform_editor_rename(&app, file_explorer_load_idx, feams.file_dir)
 					we_state := &app.state.we[file_explorer_load_idx]
 					for i in 0 ..< we_state.num_frames {
 						old_wav_file := fmt.tprintf(

@@ -14,9 +14,9 @@ CommandType :: enum u8 {
 
 CommandBF :: bit_field u32 {
 	type:    CommandType | 3,
-	win_idx: u16         | 2,
+	win_idx: u16         | 3, //log_2(MAX_WAVEFORM_EDITOR_WINDOWS)
 	idx:     u16         | 11,
-	frame:   u16         | 16,
+	frame:   u16         | 15,
 }
 
 CommandStop :: Command{} //CommandType is Stop
@@ -38,7 +38,7 @@ UndoRedoManager :: struct {
 }
 
 undo_redo_manager_new :: proc(self: ^UndoRedoManager) {
-	self.last_data_frame = nil
+	self.last_data_frame = nil 
 	queue.init(&self.undo_dequeue)
 	queue.init(&self.redo_dequeue)
 }

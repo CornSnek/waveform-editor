@@ -151,6 +151,11 @@ waveform_editor_new :: proc(app: ^App) -> (int, bool) {
 		return 0, false
 	}
 }
+waveform_editor_rename :: proc(app: ^App, win_idx: int, file_dir: string) {
+	id_sb := &app.windows.waveform_editors[win_idx].id.(strings.Builder)
+	strings.builder_reset(id_sb)
+	fmt.sbprintf(id_sb, "Waveform Editor %d - %s\x00", win_idx + 1, file_dir)
+}
 //Check if .is_active is true
 waveform_editor_destroy :: proc(we_state: ^WaveformEditorState) {
 	undo_redo_manager_destroy(&we_state.undo_redo)
@@ -739,11 +744,13 @@ Ctrl + LMB to edit a sample's value`
 	if imgui.BeginMenuBar() {
 		if imgui.BeginMenu("File") {
 			defer imgui.EndMenu()
-			if imgui.BeginMenu("New") {
+			if imgui.BeginMenu("Presets") {
 				defer imgui.EndMenu()
 				if imgui.MenuItem("Empty") do preset_empty(app, win_idx)
 				if imgui.MenuItem("Sine") do preset_sine(app, win_idx)
-				if imgui.MenuItem("Square") do preset_square(app, win_idx)
+				if imgui.MenuItem("Pulse Width 12.5%") do preset_pulse_1_8th(app, win_idx)
+				if imgui.MenuItem("Pulse Width 25%") do preset_pulse_1_4th(app, win_idx)
+				if imgui.MenuItem("Square (Pulse Width 50%)") do preset_square(app, win_idx)
 				if imgui.MenuItem("Sawtooth") do preset_sawtooth(app, win_idx)
 				if imgui.MenuItem("Triangle") do preset_triangle(app, win_idx)
 				if imgui.MenuItem("Half-Sine") do preset_half_sine(app, win_idx)
@@ -1404,7 +1411,8 @@ Ctrl + LMB to edit a sample's value`
 		}
 		if imgui.BeginMenu("Help") {
 			defer imgui.EndMenu()
-			imgui.Text(`The waveform editor is used to draw or
+			imgui.Text(
+				`The waveform editor is used to draw or
 process waveforms from other files such as .wav files or image files
 that include oscilloscopes of an audio waveform.
 
@@ -1419,7 +1427,8 @@ for FamiTracker's and FamiStudio's N163 and FDS wavetable/waveform creation.
 
 Note: To export, all sample values must be between -1 or 1 per frame and not NaN. To fix this, use
 the Effects such as Hard Clip at 1.0, Normalization at 1.0, or Triangle Wavefold at 1.0
-Use NaN to 0 for any NaN values`)
+Use NaN to 0 for any NaN values`,
+			)
 		}
 		imgui.EndMenuBar()
 	}
