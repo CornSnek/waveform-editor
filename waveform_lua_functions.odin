@@ -10,6 +10,7 @@ import "core:mem"
 import "core:reflect"
 import "core:strings"
 import "core:sync"
+import "core:time"
 
 import fm "./fourier_model"
 import lua "vendor:lua/5.4"
@@ -162,6 +163,7 @@ lua_window__newindex :: proc "c" (L: ^lua.State) -> c.int {
 		we_state := &app.state.we[win_idx]
 		context = app_context
 		undo_redo_manager_undo_setmaxframes(&we_state.undo_redo, app, win_idx, we_state.num_frames)
+		sync.mutex_guard(&wp_mutex)
 		set_frames(app, win_idx, i32(value))
 		we_state.num_frames = i32(value)
 	case "samples":
@@ -1510,66 +1512,28 @@ lua_asdr_functions :: [?]LuaCustomFunction {
 Returns adsr where a, s, r is the sample rate of the length of attack, decay, and release,
 and s is the volume [0,1] of the sustain`,
 	},
-	{ptr = proc "c" (L: ^lua.State) -> c.int {
+	{
+		ptr = proc "c" (L: ^lua.State) -> c.int {
 			if lua.Type(lua.type(L, 1)) != .USERDATA {
 				lua.L_error(L, "Argument #1 must be an asdr object")
 			}
 			asdr := cast(^ASDR)lua.touserdata(L, 1)
-			on := lua.toboolean(L, 2)
-			samples := lua.tointeger(L, 3)
-			sample_loop: for i in 0 ..< samples {
-				switch asdr.state {
-				case .Off:
-					asdr.v = 0
-					if on {
-						asdr.state = .Attack
-						asdr.v = min(asdr.v + 1 / f64(asdr.a), 1)
-					} else {
-						break sample_loop
-					}
-				case .Attack:
-					if asdr.v == 1 {
-						asdr.state = .Decay
-						asdr.v = max(asdr.v - (1 - asdr.s) / f64(asdr.d), asdr.s)
-					} else {
-						asdr.v = min(asdr.v + 1 / f64(asdr.a), 1)
-					}
-					if !on {
-						asdr.state = .Release
-						asdr.v = min(asdr.v - 1 / f64(asdr.r), 0)
-					}
-				case .Decay:
-					if (asdr.v == asdr.s) {
-						asdr.state = .Sustain
-					} else {
-						asdr.v = max(asdr.v - (1 - asdr.s) / f64(asdr.d), asdr.s)
-					}
-					if !on {
-						asdr.state = .Release
-						asdr.v = max(asdr.v - 1/ f64(asdr.r), 0)
-					}
-				case .Sustain:
-					asdr.v = asdr.s
-					if !on {
-						asdr.state = .Release
-						asdr.v = max(asdr.v - 1 / f64(asdr.r), 0)
-					} else {
-						break sample_loop
-					}
-				case .Release:
-					if (asdr.v == 0) {
-						asdr.state = .Off
-					} else {
-						asdr.v = max(asdr.v - 1 / f64(asdr.r), 0)
-					}
-				case:
-					lua.L_error(L, "Invalid enum state")
-				}
-			}
-			lua.pushnumber(L, lua.Number(asdr.v))
-			return 1
-		}, lua_name = "update", lua_full_path = "adsr.update", desc = `f(a: adsr, on: bool, s: samples) v: float
-Returns volume v for key on and s samples passed using adsr table from adsr.new()`},
+			asdr.state = .Off
+			asdr.v = 0
+			return 0
+		},
+		lua_name = "reset",
+		lua_full_path = "adsr.reset",
+		desc = `f(a: adsr)
+Resets state of adsr`,
+	},
+	{
+		ptr = lua_asdr_update,
+		lua_name = "update",
+		lua_full_path = "adsr.update",
+		desc = `f(a: adsr, on: bool, s: samples) v: float
+Returns volume v for key on and s samples passed using adsr table from adsr.new()`,
+	},
 	{ptr = proc "c" (L: ^lua.State) -> c.int {
 			if lua.Type(lua.type(L, 1)) != .USERDATA {
 				lua.L_error(L, "Argument #1 must be an asdr object")
@@ -1579,6 +1543,95 @@ Returns volume v for key on and s samples passed using adsr table from adsr.new(
 			return 0
 		}, lua_name = "print", lua_full_path = "adsr.print", desc = `f(a: adsr)
 Prints values of an asdr object for debugging purposes`},
+	{ptr = proc "c" (L: ^lua.State) -> c.int {
+			if lua.Type(lua.type(L, 1)) != .USERDATA {
+				lua.L_error(L, "Argument #1 must be an asdr object")
+			}
+			on_fr := lua.tointeger(L, 2)
+			off_fr := lua.tointeger(L, 3)
+			lua.createtable(L, c.int(on_fr + off_fr), 0)
+			table_i: lua.Integer = 1
+			for i in 0 ..< on_fr {
+				lua.pushcfunction(L, lua_asdr_update)
+				lua.pushvalue(L, 1)
+				lua.pushboolean(L, true)
+				lua.pushinteger(L, 1)
+				lua.call(L, 3, 1) // [asdr_obj, update, true, 1] -> [v]
+				lua.rawseti(L, -2, table_i)
+				table_i += 1
+			}
+			for i in 0 ..< off_fr {
+				lua.pushcfunction(L, lua_asdr_update)
+				lua.pushvalue(L, 1)
+				lua.pushboolean(L, false)
+				lua.pushinteger(L, 1)
+				lua.call(L, 3, 1)
+				lua.rawseti(L, -2, table_i)
+				table_i += 1
+			}
+			return 1
+		}, lua_name = "table", lua_full_path = "adsr.table", desc = `f(a: adsr, on_fr: int, off_fr: int) -> table
+Returns table each frame where it is on for on_fr frames and off for off_fr frames.`},
+}
+
+lua_asdr_update :: proc "c" (L: ^lua.State) -> c.int {
+	if lua.Type(lua.type(L, 1)) != .USERDATA {
+		lua.L_error(L, "Argument #1 must be an asdr object")
+	}
+	asdr := cast(^ASDR)lua.touserdata(L, 1)
+	on := lua.toboolean(L, 2)
+	samples := lua.tointeger(L, 3)
+	sample_loop: for i in 0 ..< samples {
+		switch asdr.state {
+		case .Off:
+			asdr.v = 0
+			if on {
+				asdr.state = .Attack
+				asdr.v = min(asdr.v + 1 / f64(asdr.a), 1)
+			} else {
+				break sample_loop
+			}
+		case .Attack:
+			if asdr.v == 1 {
+				asdr.state = .Decay
+				asdr.v = max(asdr.v - (1 - asdr.s) / f64(asdr.d), asdr.s)
+			} else {
+				asdr.v = min(asdr.v + 1 / f64(asdr.a), 1)
+			}
+			if !on {
+				asdr.state = .Release
+				asdr.v = max(asdr.v - asdr.s / f64(asdr.r), 0)
+			}
+		case .Decay:
+			if (asdr.v == asdr.s) {
+				asdr.state = .Sustain
+			} else {
+				asdr.v = max(asdr.v - (1 - asdr.s) / f64(asdr.d), asdr.s)
+			}
+			if !on {
+				asdr.state = .Release
+				asdr.v = max(asdr.v - asdr.s / f64(asdr.r), 0)
+			}
+		case .Sustain:
+			asdr.v = asdr.s
+			if !on {
+				asdr.state = .Release
+				asdr.v = max(asdr.v - asdr.s / f64(asdr.r), 0)
+			} else {
+				break sample_loop
+			}
+		case .Release:
+			if (abs(asdr.v) <= math.F64_EPSILON) {
+				asdr.state = .Off
+			} else {
+				asdr.v = max(asdr.v - asdr.s / f64(asdr.r), 0)
+			}
+		case:
+			lua.L_error(L, "Invalid enum state")
+		}
+	}
+	lua.pushnumber(L, lua.Number(asdr.v))
+	return 1
 }
 
 ASDR_State :: enum lua.Integer {

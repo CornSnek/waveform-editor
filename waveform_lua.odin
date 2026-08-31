@@ -66,7 +66,7 @@ f_we_lua_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: raw
 		defer imgui.EndMenuBar()
 		if imgui.BeginMenu("File") {
 			defer imgui.EndMenu()
-			if imgui.MenuItem("Load Script", "Ctrl+Shift+L") {
+			if imgui.MenuItem("Load Script", "Ctrl+Shift+O") {
 				we_lua_load_save(base, app, win_idx, .LoadLuaScript)
 			}
 			if imgui.MenuItem("Save Script", "Ctrl+S") {
@@ -123,15 +123,17 @@ f_we_lua_draw :: proc(base: ^ImGuiWindow, app: ^App, win_idx: int, userdata: raw
 				we_lua_load_save(base, app, win_idx, .SaveLuaScript)
 			}
 			if imgui.IsKeyDown(.ImGuiMod_Shift) {
-				if imgui.IsKeyPressed(.L) {
+				if imgui.IsKeyPressed(.O) {
 					we_lua_load_save(base, app, win_idx, .LoadLuaScript)
 				}
 			}
 		}
 		if imgui.IsAnyItemActive() do break no_kb
 		if imgui.IsKeyDown(.ImGuiMod_Ctrl) {
-			if imgui.IsKeyPressed(.O) {
-				app.windows.output_log.show = !app.windows.output_log.show
+			if !imgui.IsKeyDown(.ImGuiMod_Shift) {
+				if imgui.IsKeyPressed(.O) {
+					app.windows.output_log.show = !app.windows.output_log.show
+				}
 			}
 			if imgui.IsKeyPressed(.H) {
 				we_lua_open_help(app, win_idx)

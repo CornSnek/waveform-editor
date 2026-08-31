@@ -502,7 +502,7 @@ effect_chebyshev_folding_full :: proc(
 	}
 	if add_stop do harmonics_update_model(app, win_idx)
 }
-effect_n_overtone_clamp :: EffectClampInt{1, 255}
+effect_n_overtone_clamp :: EffectClampInt{1, MAX_WAVEFORM_EDITOR_POINTS}
 effect_n_overtone :: proc(app: ^App, win_idx: int) {
 	we_state := &app.state.we[win_idx]
 	effect_n_overtone_full(app, win_idx, we_state.overtone_v)
@@ -613,7 +613,7 @@ effect_offset_full :: proc(app: ^App, win_idx: int, offset_v: f32, add_stop: boo
 
 //For both low/high
 effect_pass_clamp :: proc(wfm: ^fm.Waveform_Model) -> EffectClampFloat {
-	return {min = 1, max = f32(wfm.n - 1)}
+	return {min = 1, max = f32(wfm.n)}
 }
 effect_low_pass :: proc(app: ^App, win_idx: int, low_pass_v: f32, add_stop: bool = true) {
 	wfm := &app.state.we_h_wfs[win_idx]

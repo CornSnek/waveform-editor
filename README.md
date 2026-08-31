@@ -25,6 +25,6 @@ odin build . -collection:imgui=/path/to/odin-imgui/ -o:speed
 }
 ```
 ### Usage
-I was inspired by the NES audio expansion chipsets N163 and FDS, where waveforms where custom waveforms can be drawn to make music. I wanted to make my own 'Waveform Editor' where I can import waveforms and wavetables from .wav files or oscilloscope images of audio. 
+I wanted to make my own 'Waveform Editor' where I can import waveforms and wavetables from .wav files or oscilloscope images of audio. I was inspired by the NES audio expansion chipsets N163 and FDS, where waveforms where custom waveforms can be drawn to make music.
 
 There is an 'Import/Export Text' option that can get the integer values to create the wavetables for other NES music programs like FamiTracker or FamiStudio.

@@ -87,7 +87,9 @@ context_log_proc :: proc(
 		ol_type = .Error
 	}
 	output_log_print(&app.state.output_log, ol_type, "Log", text)
-	fmt.println(level, text)
+	time_str: [time.MIN_HMS_LEN]u8
+	_ = time.to_string_hms(time.now(), time_str[:])
+	fmt.printfln("[{}, %s] %s", level, time_str[:], text)
 }
 
 output_log_destroy :: proc(self: ^OutputLog) {
