@@ -1,6 +1,5 @@
 package waveform_editor
 
-import "core:container/queue"
 import "core:fmt"
 import "core:log"
 import "core:reflect"

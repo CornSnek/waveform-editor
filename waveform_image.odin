@@ -1,7 +1,6 @@
 package waveform_editor
 
 import "core:container/handle_map"
-import "core:fmt"
 import "core:log"
 import "core:math"
 import "core:math/linalg"

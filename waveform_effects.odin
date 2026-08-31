@@ -128,7 +128,6 @@ preset_half_sine :: proc(app: ^App, win_idx: int, add_stop: bool = true) {
 }
 
 lua_preset_table :: proc "c" (L: ^lua.State) -> c.int {
-	app := lua_get_app(L)
 	preset_value := LuaPresetChoose(lua.tointeger(L, 1))
 	table_len := lua.tointeger(L, 2)
 	lua.createtable(L, c.int(table_len), 0)

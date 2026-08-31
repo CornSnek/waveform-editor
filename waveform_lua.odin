@@ -1,12 +1,10 @@
 #+feature dynamic-literals
 package waveform_editor
 
-import "base:runtime"
 import "core:c"
 import "core:container/handle_map"
 import "core:container/queue"
 import "core:fmt"
-import "core:log"
 import "core:sort"
 import "core:strings"
 
@@ -198,7 +196,7 @@ we_lua_open_help :: proc(app: ^App, win_idx: int) {
 		lua_desc_map["wemath.inf"] = "Positive Infinity (64-bit)"
 		lua_desc_map["wemath.f32max"] = "3.402823466e+38, or biggest number for a f32 float before reaching infinity\n"
 		lua_desc_keys = make([dynamic]cstring)
-		for k, v in lua_desc_map {
+		for k, _ in lua_desc_map {
 			append(&lua_desc_keys, k)
 		}
 		sort.merge_sort(lua_desc_keys[:])

@@ -1,7 +1,6 @@
 package waveform_editor
 
 import "base:intrinsics"
-import "base:runtime"
 import "core:c"
 import "core:fmt"
 import "core:log"
@@ -10,7 +9,6 @@ import "core:mem"
 import "core:reflect"
 import "core:strings"
 import "core:sync"
-import "core:time"
 
 import fm "./fourier_model"
 import lua "vendor:lua/5.4"
@@ -493,7 +491,6 @@ lua_waveform_effects :: [?]LuaCustomFunction{{ptr = proc "c" (L: ^lua.State) -> 
 				_lua_check_window(L, 1, app, win_i)
 				win_i -= 1
 			}
-			we_state := &app.state.we[win_i]
 			effect_nan_to_0_full(app, win_i, false)
 			return 0
 		}, lua_name = "nan_to_0", lua_full_path = "effects.nan_to_0", desc = `f(), or f(w:int)
@@ -711,7 +708,6 @@ Uses the As N Overtone Effect with threshold x.` + W_AND_F_PARAMETER}, {ptr = pr
 			win_i := int(lua.tointeger(L, 2))
 			_lua_check_window(L, 2, app, win_i)
 			win_i -= 1
-			we_state := &app.state.we[win_i]
 			n_samp_interp_str: cstring = lua.tostring(L, 3)
 			n_samp_interp: InterpolationType = ---
 			switch (n_samp_interp_str) {
@@ -1551,7 +1547,7 @@ Prints values of an asdr object for debugging purposes`},
 			off_fr := lua.tointeger(L, 3)
 			lua.createtable(L, c.int(on_fr + off_fr), 0)
 			table_i: lua.Integer = 1
-			for i in 0 ..< on_fr {
+			for _ in 0 ..< on_fr {
 				lua.pushcfunction(L, lua_asdr_update)
 				lua.pushvalue(L, 1)
 				lua.pushboolean(L, true)
@@ -1560,7 +1556,7 @@ Prints values of an asdr object for debugging purposes`},
 				lua.rawseti(L, -2, table_i)
 				table_i += 1
 			}
-			for i in 0 ..< off_fr {
+			for _ in 0 ..< off_fr {
 				lua.pushcfunction(L, lua_asdr_update)
 				lua.pushvalue(L, 1)
 				lua.pushboolean(L, false)
@@ -1581,7 +1577,7 @@ lua_asdr_update :: proc "c" (L: ^lua.State) -> c.int {
 	asdr := cast(^ASDR)lua.touserdata(L, 1)
 	on := lua.toboolean(L, 2)
 	samples := lua.tointeger(L, 3)
-	sample_loop: for i in 0 ..< samples {
+	sample_loop: for _ in 0 ..< samples {
 		switch asdr.state {
 		case .Off:
 			asdr.v = 0
