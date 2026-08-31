@@ -14,8 +14,8 @@ Created using the [Odin Programming Language](https://github.com/odin-lang/Odin)
 # To build the binary for this application
 odin build . -collection:imgui=/path/to/odin-imgui/ -o:speed
 ```
+Optionally, edit ols.json with the following for ols to work
 ```json
-//Optionally, edit ols.json with the following for ols to work
 {
     "collections": [
         {
