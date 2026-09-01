@@ -37,7 +37,6 @@ WaveformEditorState :: struct {
 	num_points:      i32, //1 to MAX_WAVEFORM_EDITOR_POINTS
 	scale:           f32,
 	edit_state:      EditState,
-	read_range:      WaveformRangeType,
 	last_effect_vf:  EffectPtr,
 	gain_v:          f32,
 	normal_v:        f32,
@@ -198,18 +197,6 @@ WaveformBitcrush :: enum i32 {
 	_7B,
 	_8B,
 }
-WaveformRangeType :: enum i32 {
-	F32_CLAMP,
-	U8,
-	I16,
-}
-WaveformRange := [WaveformRangeType]linalg.Vector2f32 {
-	.F32_CLAMP = {-1, 1},
-	.U8        = {bits.U8_MIN, bits.U8_MAX},
-	.I16       = {bits.I16_MIN, bits.I16_MAX},
-}
-
-_WAVEFORM_RANGE_CSTR: cstring : "Float (-1 to 1)\x00U8 (0 to 255)\x00I16 (-32768 to 32767)\x00"
 
 set_amplitude_buffer :: proc(app: ^App, we_state: ^WaveformEditorState) {
 	dbfs: f32 = ---
@@ -1138,15 +1125,6 @@ Ctrl + LMB to edit a sample's value`
 			sync.mutex_unlock(&wp_mutex)
 		}
 		if imgui.BeginMenu("View") {
-			imgui.Text("Read values as...")
-			if imgui.Combo(
-				"##Read Values as",
-				cast(^i32)&we_state.read_range,
-				_WAVEFORM_RANGE_CSTR,
-			) {
-				imgui.CloseCurrentPopup()
-			}
-			imgui.Separator()
 			help_marker(
 				"Interpolates values between sample points using the following\nNone: Interpolate using the leftmost point only\nLinear: Interpolation between the last and next point\nCubic Hermite: Interpolation using 4 points (f(x_m1), f(x0), f(x1), f(x2))\nto calculate between x0 and x1",
 			)
