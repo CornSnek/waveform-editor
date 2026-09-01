@@ -25,6 +25,11 @@ Optionally, edit ols.json with the following for ols to work
 }
 ```
 ### Usage
-I wanted to make my own 'Waveform Editor' where I can import waveforms and wavetables from .wav files or oscilloscope images of audio. I was inspired by the NES audio expansion chipsets N163 and FDS, where waveforms where custom waveforms can be drawn to make music.
+I wanted to make a 'Waveform Editor' where I can draw waveforms. I was inspired by the NES audio expansion chipsets N163 and FDS, where custom waveforms can be drawn to make sounds. This program was created to also make waveforms other than just drawing them, and to 'Import/Export' the waveforms as integer values to create the wavetables for other NES music programs like FamiTracker or FamiStudio.
 
-There is an 'Import/Export Text' option that can get the integer values to create the wavetables for other NES music programs like FamiTracker or FamiStudio.
+Other features added to this program:
+- Importing waveforms from audio oscilloscope images.
+- Importing waveforms from .wav files.
+- Editing harmonics of a waveform.
+- Editing waveforms with audio effects.
+- Create waveforms and wavetables by Lua scripting.
