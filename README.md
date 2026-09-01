@@ -6,7 +6,7 @@ Created using the [Odin Programming Language](https://github.com/odin-lang/Odin)
 ## Installation
 ### Requirements
 - Odin Programming Language
-  - (Current version used: odin version dev-2026-07:301c287de)
+  - (Current version used: odin version dev-2026-08:8412dc37a)
 - [Odin Imgui](https://gitlab.com/L-4/odin-imgui)
 ### Build Steps
 ```sh
@@ -30,6 +30,7 @@ I wanted to make a 'Waveform Editor' where I can draw waveforms. I was inspired 
 Other features added to this program:
 - Importing waveforms from audio oscilloscope images.
 - Importing waveforms from .wav files.
+- Exporting waveforms as a whole .wav file, or in a directory of multiple .wav files each frame.
 - Editing harmonics of a waveform.
 - Editing waveforms with audio effects.
 - Create waveforms and wavetables by Lua scripting.
