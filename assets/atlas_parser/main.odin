@@ -1,6 +1,7 @@
 //Converts .png.json files into UV coordinates for top-left (tl), top-right (tr), bottom-left (bl), and bottom-right (br) coordinates
 package atlas_parser
 
+import "core:mem"
 import "core:encoding/json"
 import "core:fmt"
 import "core:os"
